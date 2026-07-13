@@ -1,0 +1,23 @@
+# Entorno y secretos
+.venv/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Cobertura y artefactos locales
+.coverage
+htmlcov/
+dist/
+build/
+
+# Salidas y evidencias locales de la PoC
+tools/poc_validacion.py
+poc_resultado.*
+poc_screenshots/
+poc_runs/
