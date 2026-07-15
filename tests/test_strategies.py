@@ -8,7 +8,6 @@ from playwright.async_api import Page
 
 from app.models import ConsultaInput, Modalidad
 from app.scraper.aereo import EstrategiaAerea
-from app.scraper.base import FlujoNoMigradoError
 from app.scraper.dispatcher import DespachadorEstrategias, ModalidadNoDeterminadaError
 from app.scraper.domain import BusquedaConocimiento
 from app.scraper.maritimo import EstrategiaMaritima
@@ -30,23 +29,27 @@ def crear_entrada() -> ConsultaInput:
 
 
 @pytest.mark.asyncio
-async def test_estrategia_aerea_indica_que_el_flujo_se_migra_en_sprint_2() -> None:
+async def test_estrategia_aerea_sin_arribo_retorna_pending_interno() -> None:
     strategy = EstrategiaAerea()
     page = cast(Page, object())
     busqueda = crear_busqueda("aereo")
 
-    with pytest.raises(FlujoNoMigradoError, match="Sprint 2"):
-        await strategy.consultar(page, crear_entrada(), busqueda)
+    resultado = await strategy.consultar(page, crear_entrada(), busqueda)
+
+    assert resultado["estado"] == "sin_arribo"
+    assert resultado["motivo"] == "arribo_pendiente"
 
 
 @pytest.mark.asyncio
-async def test_estrategia_maritima_indica_que_el_flujo_se_migra_en_sprint_3() -> None:
+async def test_estrategia_maritima_sin_arribo_se_detiene_sin_usar_pagina() -> None:
     strategy = EstrategiaMaritima()
     page = cast(Page, object())
     busqueda = crear_busqueda("maritimo")
 
-    with pytest.raises(FlujoNoMigradoError, match="Sprint 3"):
-        await strategy.consultar(page, crear_entrada(), busqueda)
+    resultado = await strategy.consultar(page, crear_entrada(), busqueda)
+
+    assert resultado["estado"] == "sin_arribo"
+    assert resultado["motivo"] == "arribo_pendiente"
 
 
 def test_despachador_solo_registra_aereo_y_maritimo() -> None:

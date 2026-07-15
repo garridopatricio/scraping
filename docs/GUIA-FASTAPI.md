@@ -61,10 +61,10 @@ Master determina aereo o maritimo
 La estrategia obtiene los datos
         |
         v
-FastAPI serializa ResultadoTICA como JSON
+FastAPI usa cada manifiesto como clave del JSON y publica sus datos dentro
 ```
 
-La entrada no solicita modalidad. El servicio la determina usando `Desc Descarga` de Master.
+La entrada no solicita modalidad. El servicio procesa los manifiestos secuencialmente y determina cada modalidad usando `Desc Descarga` de Master.
 
 ## 4. Requisitos locales
 
@@ -118,6 +118,16 @@ Uvicorn running on http://127.0.0.1:8000
 
 Para detener el servidor, presionar `Ctrl+C`.
 
+### Puerto 8000 ocupado
+
+El error de Windows `[Errno 10048]` significa que otro proceso ya utiliza el puerto `8000`. Se puede iniciar el servicio en `8001` sin detener procesos ajenos:
+
+```powershell
+& ".venv\Scripts\python.exe" -m uvicorn app.main:app --port 8001
+```
+
+En ese caso, Swagger queda en `http://127.0.0.1:8001/docs` y las solicitudes deben usar el mismo puerto. Como el servicio se ejecuta sin `--reload`, despues de modificar el codigo siempre hay que detenerlo con `Ctrl+C` y volver a iniciarlo.
+
 ## 6. Documentacion generada automaticamente
 
 Con el servidor ejecutandose:
@@ -167,26 +177,53 @@ No consulta manifiestos ni ejecuta el scraping completo.
 
 ### `POST /v1/consultas`
 
-Inicia una consulta TICA.
+Inicia un lote TICA de uno o varios manifiestos.
 
 Request:
 
 ```json
 {
-  "manifiesto": "ENGB2600229",
-  "fecha_fin": "2026-07-13"
+  "manifiestos": ["ENGB2600229", "MANIFIESTO-B"],
+  "fecha_fin": "2026-07-14"
 }
 ```
 
 Reglas de entrada:
 
-- Ambos campos son obligatorios.
-- `manifiesto` no puede estar vacio.
+- `manifiestos` y `fecha_fin` son obligatorios; `fecha_inicio` es opcional.
+- Si `fecha_inicio` no se envia, el campo se conserva vacio en TICA.
+- Si `fecha_inicio` se envia, no puede ser posterior a `fecha_fin` y la ventana inclusiva no puede superar 15 dias.
+- `manifiestos` contiene entre 1 y 100 valores no vacios ni repetidos.
 - `fecha_fin` usa el formato ISO `YYYY-MM-DD`.
 - No se acepta una modalidad elegida por el usuario.
 - Los campos adicionales son rechazados.
+- Una sola fecha se aplica a todo el lote.
+- Los manifiestos se procesan secuencialmente y conservan el orden recibido.
+- Si un manifiesto falla, se registra su estado y continua el siguiente.
 
 Una entrada invalida devuelve HTTP 422 antes de abrir el navegador.
+
+FastAPI y Playwright siguen utilizando operaciones asincronas para esperar red y navegador. Sin embargo, no se lanzan consultas concurrentes dentro del lote: se usa `await` sobre cada manifiesto antes de avanzar al siguiente para respetar TICA y evitar mezclar sesiones.
+
+Respuesta abreviada:
+
+```json
+{
+  "ENGB2600229": {
+    "estado": "ok",
+    "modalidad": "maritimo",
+    "momento1": {},
+    "momento2": {"movimientos": []},
+    "momento3": {},
+    "motivo": null,
+    "desde_cache": false
+  }
+}
+```
+
+El manifiesto es la clave del objeto JSON. Dentro se encuentran directamente su estado y sus datos; la respuesta no contiene secciones `regla` ni `resultados`.
+
+El contrato completo, incluidos los campos escalares y `momento2.movimientos`, esta en `docs/SPRINT-1-CONTRATO-API.md`.
 
 ## 8. Probar desde PowerShell
 
@@ -200,22 +237,43 @@ Consulta:
 
 ```powershell
 $body = @{
-    manifiesto = "ENGB2600229"
-    fecha_fin = "2026-07-13"
+    manifiestos = @("ENGB2600229", "MANIFIESTO-B")
+    fecha_fin = "2026-07-14"
 } | ConvertTo-Json
 
 Invoke-RestMethod `
     -Method Post `
     -Uri "http://127.0.0.1:8000/v1/consultas" `
     -ContentType "application/json" `
-    -Body $body
+    -Body $body |
+    ConvertTo-Json -Depth 10
 ```
+
+Para limitar expresamente la busqueda a una ventana, agregar por ejemplo `fecha_inicio = "2026-07-01"` al cuerpo. Si no se agrega, PowerShell no envia el campo y TICA lo recibe vacio.
+
+Ejemplo equivalente a la consulta manual, dejando la fecha inicial vacia:
+
+```json
+{
+  "manifiestos": [
+    "ENGB2600229",
+    "05759349765",
+    "872219087246",
+    "SMLU8904355A"
+  ],
+  "fecha_fin": "2026-07-31"
+}
+```
+
+Los flujos aereo y maritimo ya estan migrados. Maritimo devuelve todos los movimientos
+de un conocimiento multilinea en `momento2.movimientos`; con una sola linea tambien
+completa los campos escalares por compatibilidad.
 
 El caracter de acento grave al final de una linea permite continuar un comando de PowerShell en la linea siguiente.
 
 ## 9. Estados de respuesta
 
-Los resultados de negocio normalmente usan HTTP 200. El consumidor debe revisar el campo `estado`.
+Los resultados de negocio normalmente usan HTTP 200. El consumidor debe recorrer las claves de primer nivel y revisar el `estado` contenido bajo cada manifiesto.
 
 | Estado | Significado general |
 |---|---|
@@ -224,7 +282,7 @@ Los resultados de negocio normalmente usan HTTP 200. El consumidor debe revisar 
 | `stale` | Se entrega una lectura anterior desde cache |
 | `unavailable` | TICA o el navegador no estan disponibles |
 | `needs_review` | Existe una seleccion ambigua |
-| `not_found` | No se encontro el manifiesto |
+| `not_found` | No se encontro el manifiesto actual |
 | `not_implemented` | El flujo de modalidad aun no fue migrado |
 
 El catalogo puede ampliarse o cambiar en futuras versiones del contrato. Los consumidores no deben asumir que HTTP 200 significa necesariamente `ok`.
@@ -235,11 +293,13 @@ FastAPI, la validacion, los health checks, el orquestador, el logging y la detec
 
 La consulta real puede:
 
-1. Recibir y validar `manifiesto` y `fecha_fin`.
-2. Abrir TICA mediante Playwright.
-3. Buscar el conocimiento.
-4. Leer Master.
-5. Determinar si corresponde aereo o maritimo.
+1. Recibir y validar de 1 a 100 manifiestos, una `fecha_fin` y una `fecha_inicio` opcional.
+2. Procesar cada manifiesto secuencialmente.
+3. Abrir TICA mediante Playwright para el manifiesto actual.
+4. Buscar el conocimiento.
+5. Leer Master.
+6. Determinar si corresponde aereo o maritimo.
+7. Continuar con el siguiente manifiesto aunque el anterior falle.
 
 Los recorridos completos todavia deben migrarse desde la PoC:
 

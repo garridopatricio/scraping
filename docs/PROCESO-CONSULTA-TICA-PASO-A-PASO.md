@@ -130,6 +130,18 @@ La carga marítima sigue una ruta de consulta más compleja que la aérea, porqu
 | **8** | **Identificar el movimiento de inventario correcto** | En la sección de Detenciones aparece el movimiento de inventario real del ingreso al almacén fiscal. Anotar: número de movimiento, depósito, fecha de ingreso al régimen, fecha del movimiento de inventario, bultos y peso. |
 | **9** | **Verificar DUA en sección Duas del depósito** | Desde el mismo módulo de depósitos, verificar si ya existe DUA generado para esa carga. Si existe: registrar los datos del DUA de nacionalización. |
 
+Reglas productivas confirmadas:
+
+- La cedula usada por el servicio es `095144`, configurable con
+  `TICA_CEDULA_JURIDICA_MARITIMA`; no se envia en el request.
+- Cada linea se recorre por separado conservando los enlaces de su propia fila. Con
+  varias lineas se publican todos los registros en `momento2.movimientos` y un solo DUA
+  consolidado de nacionalizacion.
+- Si `Lugar de Destino` esta vacio, el pedido es anticipado: se conserva el DUA inicial
+  y su fecha como Momento 3, Momento 2 queda vacio y no se navega a Depositos.
+- Si no aparece la cedula configurada se responde `not_found/cedula_no_encontrada`. Si
+  falta arribo o DUA final se responde `pending`, conservando los momentos ya obtenidos.
+
 | *⚠️  Diferencia crítica con Aéreo: En marítimo, el DUA visible en la primera pantalla (Líneas y Afectaciones) es el DUA de MOVILIZACIÓN (traslado del puerto al almacén fiscal), no el de nacionalización. El DUA de nacionalización se encuentra en la sección de Depósitos, después de seguir el proceso completo descrito.* |
 | :---- |
 
@@ -223,3 +235,38 @@ A partir de este análisis, se identificaron los siguientes campos que RAGA Orde
 | Asignación de recurso IT cliente para validaciones (sustituto de Jerson Morales) | Nataly Castillo \+ Jefatura Grupo Dökka | En gestión interna |
 
 *— Documento elaborado por Raga-x a partir de la sesión técnica del 10 de marzo de 2026 —*
+# Implementacion productiva del flujo aereo (Sprint 2 completado)
+
+El Sprint 2 y el hito M2 fueron cerrados el 2026-07-15 con QA confirmado. No se
+dispusieron casos reales sin fecha de arribo ni con varios movimientos `ING`; esas ramas
+quedan cubiertas mediante fixtures estructurales y registradas como riesgo residual hasta
+que aparezcan datos reales adecuados.
+
+El servicio busca el conocimiento una sola vez, abre Master y usa `Desc Descarga` para
+clasificar la modalidad. Para aereo ejecuta el siguiente recorrido:
+
+1. **Momento 1:** toma fecha de arribo del conocimiento y transportista de Master. Si el
+   conocimiento existe pero no tiene fecha de arribo, devuelve
+   `pending/arribo_pendiente` y termina la consulta de ese elemento: no pregunta Lineas,
+   Stock, Detenciones ni DUA.
+2. **Lineas y Afectaciones:** navega por los enlaces del conocimiento y lee las filas de
+   Afectaciones conservando sus enlaces. Solo considera filas en estado `ING`.
+3. **Madre/hijo:** toma el unico movimiento de Stock en estado `ING`, siguiendo el legacy
+   validado. La fila de Afectaciones no contiene el conocimiento como columna; la relacion
+   se observa en el detalle de Stock. Si aparecen varios `ING` y no existe una segunda
+   regla confirmada, devuelve `needs_review` con `ambiguedad_madre_hijo`.
+4. **Momento 2:** desde el movimiento elegido y Detenciones obtiene movimiento, almacen,
+   fecha de ingreso al regimen, fecha del movimiento, bultos y peso bruto.
+5. **Momento 3:** abre los DUAs asociados al movimiento y luego el detalle del DUA. El
+   numero sale de la tabla y la fecha de registro del detalle; la fecha de asociacion no se
+   publica como `fecha_dua`. Si no existe DUA, conserva lo anterior y devuelve `pending`.
+
+Estados relevantes: `not_found/manifiesto_no_encontrado` si la busqueda inicial no
+encuentra el conocimiento; `pending/arribo_pendiente` si lo encuentra pero no tiene fecha
+de arribo; `pending` si falta el DUA; `needs_review` si madre/hijo es ambiguo, `unavailable`
+ante fallo del portal sin cache, `stale` con cache utilizable y `ok` con DUA confirmado.
+
+Las pruebas automatizadas usan HTML sanitizado y nunca consultan TICA vivo.
+
+El contrato vigente publica 10 campos. Partidas arancelarias y valor/impuestos quedan
+fuera del alcance actual aunque aparezcan en secciones historicas de este documento.

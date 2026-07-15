@@ -25,8 +25,9 @@
 
 | Estado | Tareas |
 |---|---|
-| Done | 6 |
-| Pending | 35 |
+| Done | 20 |
+| In Progress | 0 |
+| Pending | 21 |
 
 ---
 
@@ -188,16 +189,16 @@
 ## Sprint 2 - Modalidad aérea
 
 ### TICA-020 - Fixtures flujo aéreo
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Mejoras · **Estimación:** 3 h · **PR/QA:** Sí
 - **Descripción:** Guardar HTML representativo del flujo aéreo.
 - **Entregable esperado:** tests/fixtures/aereo.
 - **Criterios de aceptación:** Fixtures cubren ok, sin arribo y ambigüedad madre/hijo.
 - **Notas funcionales:** Sin datos sensibles extra.
-- **Notas técnicas:** Tests no tocan TICA vivo.
+- **Notas técnicas:** Cerrada con excepcion aceptada. Existen HTML reales sanitizados de un HAWB completo y un MAWB con arribo sin Stock. Sin datos reales para sin-arribo y multi-ING; ambas ramas tienen fixtures estructurales y deben revalidarse al aparecer evidencia. Tests no tocan TICA vivo.
 
 ### TICA-021 - Aéreo Momento 1 arribo
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 3 h · **PR/QA:** Sí
 - **Descripción:** Implementar consulta inicial aérea.
 - **Entregable esperado:** Parser momento 1.
@@ -206,7 +207,7 @@
 - **Notas técnicas:** Tests contra fixtures.
 
 ### TICA-022 - Aéreo Momento 2 movimiento ING
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Alta
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Alta
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 6 h · **PR/QA:** Sí
 - **Descripción:** Implementar Líneas y Afectaciones.
 - **Entregable esperado:** Parser momento 2.
@@ -215,7 +216,7 @@
 - **Notas técnicas:** Tests contra fixtures.
 
 ### TICA-023 - Regla madre/hijo aéreo
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Implementar selección segura de movimiento.
 - **Entregable esperado:** Regla de selección.
@@ -224,7 +225,7 @@
 - **Notas técnicas:** Test dedicado.
 
 ### TICA-024 - Aéreo Momento 3 DUA
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 3 h · **PR/QA:** Sí
 - **Descripción:** Implementar parser de DUA aéreo.
 - **Entregable esperado:** Parser momento 3.
@@ -233,7 +234,7 @@
 - **Notas técnicas:** Tests contra fixtures.
 
 ### TICA-025 - Tests aéreos
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Demo · **Tipo de tarea:** Mejoras · **Estimación:** 3 h · **PR/QA:** Sí
 - **Descripción:** Crear/ejecutar pruebas de modalidad aérea.
 - **Entregable esperado:** Suite aérea.
@@ -242,29 +243,29 @@
 - **Notas técnicas:** Fixtures HTML.
 
 ### TICA-026 - Validación QA aérea
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Baja
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Baja
 - **Tipo:** Demo · **Tipo de tarea:** Mejoras · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Revisar datos contra evidencia cliente.
 - **Entregable esperado:** M2 aprobado.
 - **Criterios de aceptación:** QA valida flujo aéreo con caso real.
 - **Notas funcionales:** Requiere contraparte si hay dudas.
-- **Notas técnicas:** Comparar con reporte manual.
+- **Notas técnicas:** QA confirmado el 2026-07-15 con los casos disponibles: 9 consultas reales independientes, fixtures HTML reales y 95 pruebas automatizadas. M2 aprobado con riesgo residual documentado por falta de casos reales sin-arribo y multi-ING.
 
 ---
 
 ## Sprint 3 - Modalidad marítima
 
 ### TICA-030 - Fixtures flujo marítimo
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Mejoras · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Guardar HTML de los 9 pasos.
 - **Entregable esperado:** tests/fixtures/maritimo.
 - **Criterios de aceptación:** Fixtures cubren flujo completo y consolidado multi-cédula.
 - **Notas funcionales:** Datos sensibles mínimos.
-- **Notas técnicas:** Tests no tocan TICA vivo.
+- **Notas técnicas:** Tres capturas reales sanitizadas: normal de una línea, anticipado y consolidado multilinea. La auditoría automática rechaza identificadores reales; los tests no tocan TICA vivo.
 
 ### TICA-031 - Marítimo DUA movilización
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Alta
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Alta
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 6 h · **PR/QA:** Sí
 - **Descripción:** Implementar pasos conocimiento y Líneas/Afectaciones.
 - **Entregable esperado:** Parser DUA movilización.
@@ -273,7 +274,7 @@
 - **Notas técnicas:** Campo interno separado.
 
 ### TICA-032 - Marítimo depósitos
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Alta
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Alta
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 6 h · **PR/QA:** Sí
 - **Descripción:** Implementar navegación a depósitos.
 - **Entregable esperado:** Parser depósitos.
@@ -282,16 +283,16 @@
 - **Notas técnicas:** Tests con fixtures.
 
 ### TICA-033 - Filtro por cédula jurídica
-- **Estado:** Pending · **Prioridad:** Crítica · **Complejidad:** Alta
+- **Estado:** Done · **Prioridad:** Crítica · **Complejidad:** Alta
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
-- **Descripción:** Filtrar consolidado por cédula del input.
+- **Descripción:** Filtrar consolidado por la cédula interna configurable `095144`.
 - **Entregable esperado:** Regla cédula.
 - **Criterios de aceptación:** Si cédula no aparece retorna not_found.
 - **Notas funcionales:** Evita datos de otra empresa.
 - **Notas técnicas:** Test multi-cédula.
 
 ### TICA-034 - DUA nacionalización marítimo
-- **Estado:** Pending · **Prioridad:** Crítica · **Complejidad:** Alta
+- **Estado:** Done · **Prioridad:** Crítica · **Complejidad:** Alta
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 6 h · **PR/QA:** Sí
 - **Descripción:** Implementar consulta final en depósitos.
 - **Entregable esperado:** Parser DUA nacionalización.
@@ -300,7 +301,7 @@
 - **Notas técnicas:** Test bloqueante.
 
 ### TICA-035 - Tests marítimos regla dura
-- **Estado:** Pending · **Prioridad:** Crítica · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Crítica · **Complejidad:** Media
 - **Tipo:** Demo · **Tipo de tarea:** Mejoras · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Crear suite marítima completa.
 - **Entregable esperado:** Suite marítima.
@@ -309,13 +310,13 @@
 - **Notas técnicas:** Fixtures HTML.
 
 ### TICA-036 - Validación QA marítima
-- **Estado:** Pending · **Prioridad:** Crítica · **Complejidad:** Baja
+- **Estado:** Done · **Prioridad:** Crítica · **Complejidad:** Baja
 - **Tipo:** Demo · **Tipo de tarea:** Mejoras · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Revisar datos contra evidencia cliente.
 - **Entregable esperado:** M3 aprobado.
 - **Criterios de aceptación:** QA valida flujo marítimo con caso real.
 - **Notas funcionales:** Riesgo alto si hay error de DUA.
-- **Notas técnicas:** Comparar con reporte manual.
+- **Notas técnicas:** QA cerrado el 2026-07-15 con tres respuestas públicas reales. Se corrigió la normalización decimal; normal y anticipado coinciden con legacy, y multilinea devuelve dos movimientos cuyos totales coinciden. M3 aprobado.
 
 ---
 

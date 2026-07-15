@@ -9,8 +9,8 @@ from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from pydantic import BaseModel
 
 from app.config import Settings, get_settings
-from app.models import ConsultaInput, ResultadoTICA
-from app.orchestrator import ConsultaOrchestrator
+from app.models import ConsultaLoteInput, ConsultaLoteResultado
+from app.orchestrator import ConsultaLoteOrchestrator, ConsultaOrchestrator
 from app.scraper.browser import BrowserManager, BrowserUnavailableError
 
 router = APIRouter()
@@ -62,18 +62,28 @@ def get_orchestrator() -> ConsultaOrchestrator:
 
 
 @lru_cache
+def get_lote_orchestrator() -> ConsultaLoteOrchestrator:
+    """Comparte el orquestador, navegador y cache entre todos los lotes."""
+
+    return ConsultaLoteOrchestrator(get_orchestrator())
+
+
+@lru_cache
 def get_portal_health_checker() -> PortalHealthChecker:
     """Reutiliza la comprobacion configurada del portal."""
 
     return PortalHealthChecker()
 
 
-@router.post("/consultas", response_model=ResultadoTICA)
+@router.post("/consultas", response_model=ConsultaLoteResultado)
 async def consultar_tica(
-    entrada: ConsultaInput,
-    orchestrator: Annotated[ConsultaOrchestrator, Depends(get_orchestrator)],
-) -> ResultadoTICA:
-    """Valida la entrada y delega la consulta al orquestador."""
+    entrada: ConsultaLoteInput,
+    orchestrator: Annotated[
+        ConsultaLoteOrchestrator,
+        Depends(get_lote_orchestrator),
+    ],
+) -> ConsultaLoteResultado:
+    """Valida y procesa uno o varios manifiestos en orden secuencial."""
 
     return await orchestrator.consultar(entrada)
 

@@ -2,7 +2,7 @@
 
 ## Resumen del proyecto
 
-Scrapping TICA es un microservicio Python que automatiza la consulta de datos publicos de importacion en el portal TICA de Costa Rica. A partir de un manifiesto y una fecha, identifica automaticamente si la carga es aerea o maritima, recorre el flujo correspondiente y normaliza la informacion de arribo, movimiento de inventario y DUA para su futura integracion con RAGA Orders.
+Scrapping TICA es un microservicio Python que automatiza la consulta de datos publicos de importacion en el portal TICA de Costa Rica. A partir de uno o varios manifiestos, una `fecha_fin` y una `fecha_inicio` opcional, procesa cada manifiesto, identifica automaticamente si la carga es aerea o maritima y normaliza la informacion de arribo, movimiento de inventario y DUA para su futura integracion con RAGA Orders.
 
 El proyecto usa FastAPI, Pydantic y Playwright. La prueba de concepto ya valido los recorridos aereo y maritimo; la infraestructura productiva y el contrato de la API estan terminados, mientras que la migracion del scraping real se desarrolla por modalidad. La modalidad terrestre es condicional y no forma parte del alcance activo.
 
@@ -12,21 +12,26 @@ El proyecto usa FastAPI, Pydantic y Playwright. La prueba de concepto ya valido 
 |---|---|---|
 | Sprint 0 - PoC y planificacion | Validar casos reales, reglas de negocio y viabilidad del portal TICA. | **Completado**. Gate M0 cerrado. |
 | Sprint 1 - Infra base | Crear arquitectura, modelos, navegador, estrategias, cache, logging, API y contrato. | **Completado**. 9 de 9 tareas; hito M1 aprobado. |
-| Sprint 2 - Modalidad aerea | Migrar el flujo aereo, preparar fixtures, implementar los tres momentos y validar con QA. | **En curso**. 0 de 7 tareas completadas; TICA-020 (fixtures aereos) en curso. |
-| Sprint 3 - Modalidad maritima | Migrar el flujo maritimo, sus filtros y la regla de DUA de nacionalizacion. | **Pendiente**. Inicia despues del Sprint 2. |
+| Sprint 2 - Modalidad aerea | Migrar el flujo aereo, preparar fixtures, implementar los tres momentos y validar con QA. | **Completado**. 7 de 7 tareas; M2 aprobado con limitacion documentada por falta de casos reales sin arribo y multi-ING. |
+| Sprint 3 - Modalidad maritima | Migrar el flujo maritimo, sus filtros y la regla de DUA de nacionalizacion. | **Completado**. 7 de 7 tareas; M3 aprobado. |
 | Sprint 4 - Integracion RAGA Orders | Integrar el cliente HTTP, los campos TICA y su visualizacion en RAGA Orders. | **Pendiente**. |
 | Sprint 5 - QA integral y cierre | Validar estados, degradacion, CAPTCHA y reglas con casos reales. | **Pendiente**. |
 | Sprint 6 - Terrestre | Incorporar la modalidad terrestre si se confirma su necesidad y se reciben insumos. | **Condicional / fuera del alcance actual**. |
 
 ## Estado actual
 
-- Fase vigente: Sprint 2 - Modalidad aerea.
-- Tarea activa: TICA-020 - fixtures aereos sanitizados.
-- Entrada vigente: `manifiesto` y `fecha_fin`.
+- Fase cerrada: Sprint 2 - Modalidad aerea; hito M2 aprobado.
+- TICA-020: completada con excepcion aceptada. No se dispuso de casos reales sin arribo ni multi-ING; ambas ramas quedan cubiertas mediante fixtures estructurales y deben revalidarse cuando aparezcan datos reales.
+- TICA-026: completada; QA confirmado con los casos aereos disponibles.
+- Fase cerrada: Sprint 3 - Modalidad maritima; M3 aprobado.
+- Siguiente fase: Sprint 4 - Integracion RAGA Orders.
+- La cedula maritima `095144` es configuracion interna; anticipados y varias lineas ya estan implementados.
+- Entrada vigente: `manifiestos` (lista de 1 a 100), `fecha_fin` obligatoria y `fecha_inicio` opcional.
+- Ejecucion del lote: asincrona en I/O, pero secuencial por manifiesto y en orden de entrada.
 - Modalidad: detectada automaticamente como aerea o maritima desde Master.
 - Arquitectura: el codigo de `app/` es autonomo y no importa el archivo de la PoC.
 
-El seguimiento vigente se mantiene en [Sprint 2 - avances](docs/SPRINT-2-AVANCES.md).
+El seguimiento vigente se mantiene en [Sprint 3 - avances](docs/SPRINT-3-AVANCES.md).
 
 ## Documentacion
 
@@ -37,6 +42,7 @@ El seguimiento vigente se mantiene en [Sprint 2 - avances](docs/SPRINT-2-AVANCES
 - [Cierre del Sprint 0](docs/SPRINT-0-CIERRE.md)
 - [Avances del Sprint 1](docs/SPRINT-1-AVANCES.md)
 - [Avances del Sprint 2](docs/SPRINT-2-AVANCES.md)
+- [Avances del Sprint 3](docs/SPRINT-3-AVANCES.md)
 
 ## Requisitos
 
@@ -79,7 +85,7 @@ En Windows no se debe usar `--reload` con la configuracion actual: Uvicorn selec
 
 Rutas disponibles:
 
-- `POST /v1/consultas`: recibe `manifiesto` y `fecha_fin`.
+- `POST /v1/consultas`: recibe uno o varios `manifiestos`, una `fecha_fin` compartida y, opcionalmente, `fecha_inicio`.
 - `GET /v1/health`: salud del microservicio.
 - `GET /v1/health/portal`: conectividad con la portada de TICA; no consulta manifiestos.
 
@@ -87,24 +93,42 @@ Ejemplo de entrada:
 
 ```json
 {
-  "manifiesto": "ENGB2600229",
-  "fecha_fin": "2026-07-13"
+  "manifiestos": ["ENGB2600229", "MANIFIESTO-B"],
+  "fecha_fin": "2026-07-14"
 }
 ```
 
-Ejemplo abreviado de respuesta mientras el flujo de modalidad siga pendiente de migracion:
+Si se omite `fecha_inicio`, el servicio deja vacío ese campo en TICA, igual que la consulta manual. Si se incluye, debe ser menor o igual a `fecha_fin` y la ventana no puede superar 15 días inclusivos.
+
+Ejemplo abreviado de respuesta:
 
 ```json
 {
-  "estado": "not_implemented",
-  "modalidad": "maritimo",
-  "identificador": "ENGB2600229",
-  "motivo": "flujo_modalidad_pendiente_de_migracion",
-  "desde_cache": false
+  "ENGB2600229": {
+    "estado": "ok",
+    "modalidad": "maritimo",
+    "momento1": {},
+    "momento2": {"movimientos": []},
+    "momento3": {},
+    "motivo": null,
+    "desde_cache": false
+  },
+  "MANIFIESTO-B": {
+    "estado": "not_found",
+    "modalidad": null,
+    "momento1": {},
+    "momento2": {},
+    "momento3": {},
+    "motivo": "manifiesto_no_encontrado",
+    "desde_cache": false
+  }
 }
 ```
 
-Los flujos completos aun responden `not_implemented` hasta migrar aereo en Sprint 2 y maritimo en Sprint 3.
+Cada clave de primer nivel es el manifiesto recibido y su valor contiene los datos de esa consulta. No existen los envoltorios `regla` ni `resultados`. La misma estructura se usa para un solo manifiesto. Los manifiestos se procesan uno por uno para no ejecutar sesiones paralelas contra el portal publico; un fallo individual no detiene el resto del lote.
+
+Los flujos aereo y maritimo estan migrados y validados. Sprint 4 integra estas respuestas
+con RAGA Orders.
 
 ## Estructura
 

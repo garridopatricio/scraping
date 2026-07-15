@@ -1,90 +1,181 @@
-# Sprint 1 - Revision del contrato API
+# Contrato API - Consultas TICA
 
-Revision tecnica aprobada de TICA-018 para el cierre del hito M1.
+Contrato aprobado en M1 y actualizado el 2026-07-14 para admitir uno o varios manifiestos por solicitud.
 
-## Resultado de la revision
-
-El contrato generado por FastAPI coincide con las decisiones vigentes de Sprint 0:
-
-- Entrada unica: `manifiesto` y `fecha_fin`; no recibe modalidad ni cedula.
-- La modalidad se publica como `aereo`, `maritimo` o `null` si TICA falla antes de clasificar.
-- Los 10 campos requeridos se agrupan en `momento1`, `momento2` y `momento3`.
-- `partidas_arancelarias` y `valor_aduanas_impuestos` no forman parte del esquema.
-- Se publican los siete estados: `ok`, `pending`, `stale`, `unavailable`, `needs_review`, `not_found` y `not_implemented`.
-- El DUA de movilizacion maritimo sigue siendo interno y no aparece en `ResultadoTICA`.
-- Las reglas de negocio pendientes pueden expresarse con `pending` o `needs_review` sin inventar datos.
-
-## Request
+## Endpoint
 
 `POST /v1/consultas`
 
+La ruta es la misma para uno o varios manifiestos. La forma del request y del response tambien es siempre la misma.
+
+## Request
+
 ```json
 {
-  "manifiesto": "ENGB2600229",
-  "fecha_fin": "2026-07-13"
+  "manifiestos": ["MANIFIESTO-A", "MANIFIESTO-B"],
+  "fecha_fin": "2026-07-14"
 }
 ```
 
-La fecha usa ISO `YYYY-MM-DD`. Campos faltantes, manifiesto vacio, fecha invalida o campos extra producen HTTP 422 antes de abrir el navegador.
+Para consultar uno solo igualmente se envia una lista:
+
+```json
+{
+  "manifiestos": ["MANIFIESTO-A"],
+  "fecha_fin": "2026-07-14"
+}
+```
+
+`manifiesto` conserva el significado que ya tiene en las reglas del proyecto: es el identificador con el que comienza la busqueda del conocimiento. No se agrega una entidad generica llamada `codigo`.
+
+`fecha_inicio` es opcional. Al omitirla, el servicio no completa el campo de inicio y conserva el mismo comportamiento de la pantalla manual de TICA:
+
+```json
+{
+  "manifiestos": ["MANIFIESTO-A"],
+  "fecha_fin": "2026-07-14"
+}
+```
+
+Cuando se necesite limitar la busqueda, puede enviarse explicitamente:
+
+```json
+{
+  "manifiestos": ["MANIFIESTO-A"],
+  "fecha_inicio": "2026-07-01",
+  "fecha_fin": "2026-07-14"
+}
+```
+
+## Reglas del lote
+
+1. Se aceptan entre 1 y 100 manifiestos unicos por solicitud.
+2. Todos usan la misma `fecha_fin` y, cuando se envia, la misma `fecha_inicio`.
+3. Los manifiestos se procesan secuencialmente, en el orden recibido.
+4. No se crean tareas paralelas contra TICA.
+5. Un resultado fallido no detiene los manifiestos siguientes.
+6. Manifiestos vacios, repetidos o una lista mayor a 100 producen HTTP 422.
+7. No se recibe modalidad; cada manifiesto se clasifica desde `Desc Descarga` de Master.
+8. `fecha_inicio` no puede ser posterior a `fecha_fin`; cuando existe, la ventana inclusiva no puede superar 15 dias.
+9. Si `fecha_inicio` se omite, queda vacia en TICA y no se calcula automaticamente restando 14 dias.
+
+Aunque FastAPI y Playwright son asincronos, la iteracion del lote es secuencial. `await` permite esperar I/O sin bloquear innecesariamente el servidor, pero el manifiesto siguiente no inicia hasta terminar el anterior. Esta regla reduce carga sobre el portal publico, evita mezclar sesiones y coincide con la serializacion de `BrowserManager`.
+
+El limite 100 es una proteccion para un endpoint HTTP sincronico, no una restriccion del concepto de manifiesto. Si mas adelante se necesitan lotes mayores, se deben dividir en solicitudes de hasta 100 o implementar un trabajo en segundo plano con seguimiento de estado. Un lote grande puede tardar varios minutos, por lo que el cliente debe configurar un timeout acorde.
 
 ## Response
 
-Todos los resultados de negocio usan HTTP 200 y se distinguen mediante `estado` y `motivo`.
+La respuesta es un objeto JSON cuya clave de primer nivel es cada manifiesto recibido. Bajo esa clave aparecen directamente los datos de la consulta:
 
 ```json
 {
-  "estado": "pending",
-  "modalidad": "maritimo",
-  "identificador": "ENGB2600229",
-  "momento1": {
-    "fecha_arribo": "2026-07-10",
-    "transportista": "TRANSPORTISTA"
+  "MANIFIESTO-A": {
+    "estado": "pending",
+    "modalidad": "aereo",
+    "momento1": {
+      "fecha_arribo": "2026-07-10",
+      "transportista": "TRANSPORTISTA"
+    },
+    "momento2": {
+      "movimiento_inventario": null,
+      "almacen_fiscal": null,
+      "fecha_ingreso_regimen": null,
+      "fecha_movimiento_inventario": null,
+      "bultos": null,
+      "peso_bruto": null,
+      "movimientos": []
+    },
+    "momento3": {
+      "dua_nacionalizacion": null,
+      "fecha_dua": null
+    },
+    "motivo": "dua_nacionalizacion_pendiente",
+    "desde_cache": false,
+    "consultado_en": "2026-07-14T12:00:00Z"
   },
-  "momento2": {
-    "movimiento_inventario": null,
-    "almacen_fiscal": null,
-    "fecha_ingreso_regimen": null,
-    "fecha_movimiento_inventario": null,
-    "bultos": null,
-    "peso_bruto": null
-  },
-  "momento3": {
-    "dua_nacionalizacion": null,
-    "fecha_dua": null
-  },
-  "motivo": "dua_nacionalizacion_pendiente",
-  "desde_cache": false,
-  "consultado_en": "2026-07-13T12:00:00Z"
+  "MANIFIESTO-B": {
+    "estado": "not_found",
+    "modalidad": null,
+    "momento1": {
+      "fecha_arribo": null,
+      "transportista": null
+    },
+    "momento2": {
+      "movimiento_inventario": null,
+      "almacen_fiscal": null,
+      "fecha_ingreso_regimen": null,
+      "fecha_movimiento_inventario": null,
+      "bultos": null,
+      "peso_bruto": null,
+      "movimientos": []
+    },
+    "momento3": {
+      "dua_nacionalizacion": null,
+      "fecha_dua": null
+    },
+    "motivo": "manifiesto_no_encontrado",
+    "desde_cache": false,
+    "consultado_en": "2026-07-14T12:00:10Z"
+  }
 }
 ```
 
-Fechas usan ISO. `bultos` y `peso_bruto` se publican como enteros JSON. El punto mostrado por TICA se interpreta como separador de miles: `3.000` se convierte en `3000`, `614.000` en `614000` y `7450.000` en `7450000`.
+El manifiesto recibido se usa como clave y no se repite dentro de sus datos. Tampoco se exponen el nombre interno `identificador` ni los envoltorios `regla` y `resultados`.
 
-## Estados y errores
+## Campos de cada resultado
 
-| Situacion | HTTP | Estado/motivo |
-|---|---:|---|
-| Resultado completo | 200 | `ok` |
-| Sin arribo o sin DUA final | 200 | `pending` |
-| Ultima lectura buena por caida posterior | 200 | `stale` |
-| Timeout o portal caido sin cache | 200 | `unavailable/portal_unavailable` |
-| CAPTCHA | 200 | `unavailable/captcha_required` |
-| Modalidad o seleccion ambigua | 200 | `needs_review` |
-| Manifiesto no encontrado | 200 | `not_found` |
-| Flujo aun no migrado | 200 | `not_implemented` |
-| Payload invalido | 422 | Error de validacion FastAPI |
-| Portal no disponible en health | 503 | `unavailable` |
+Los 10 campos escalares vigentes se conservan y se agrega una coleccion tipada:
 
-## Health checks
+- Momento 1: `fecha_arribo`, `transportista`.
+- Momento 2: `movimiento_inventario`, `almacen_fiscal`, `fecha_ingreso_regimen`, `fecha_movimiento_inventario`, `bultos`, `peso_bruto` y `movimientos`.
+- Momento 3: `dua_nacionalizacion`, `fecha_dua`.
 
-- `GET /v1/health`: confirma que FastAPI responde; HTTP 200.
-- `GET /v1/health/portal`: comprueba solamente la portada de TICA; HTTP 200 o 503.
+`partidas_arancelarias` y `valor_aduanas_impuestos` permanecen fuera del esquema. El DUA de movilizacion maritimo sigue siendo interno.
 
-## Decisiones aprobadas para M1
+En maritimo, `movimientos` contiene todos los movimientos de las lineas. Con uno solo,
+los campos escalares conservan el mismo valor por compatibilidad; con varios, los
+escalares quedan `null`. Aereo siempre entrega `movimientos: []`.
 
-1. `bultos` y `peso_bruto` son enteros JSON; los puntos de TICA son separadores de miles.
-2. Los estados de negocio se mantienen en HTTP 200 y el consumidor decide usando `estado`.
-3. El catalogo de estados vigente tiene siete valores, pero podra modificarse o ampliarse mediante futuras versiones del contrato.
-4. Las reglas abiertas de multiples movimientos, varias lineas y pedidos anticipados no cambian la forma del contrato; se resolveran en Sprint 2/3 mediante valores, `pending` o `needs_review`.
+`bultos` y `peso_bruto` son enteros JSON. TICA presenta tres decimales: `3.000` se
+normaliza como `3`. Esta interpretacion fue corregida durante el QA maritimo al comparar
+los movimientos por linea con el total consolidado.
 
-Estado de TICA-018: aprobada. Hito M1 cerrado el 2026-07-13.
+## Estados y aislamiento
+
+Cada manifiesto tiene su propio `estado`, `motivo`, modalidad, datos y timestamp:
+
+| Situacion | Estado/motivo |
+|---|---|
+| Resultado completo | `ok` |
+| Conocimiento encontrado, pero sin fecha de arribo | `pending/arribo_pendiente` |
+| Conocimiento con arribo, pero sin DUA final | `pending` |
+| Lectura anterior por caida posterior | `stale` |
+| Portal caido sin cache | `unavailable/portal_unavailable` |
+| CAPTCHA | `unavailable/captcha_required` |
+| Seleccion ambigua | `needs_review` |
+| Manifiesto no encontrado | `not_found/manifiesto_no_encontrado` |
+| Flujo aun no migrado | `not_implemented` |
+| Excepcion inesperada aislada por el lote | `unavailable/error_interno_manifiesto` |
+
+Los resultados de negocio usan HTTP 200 y el consumidor decide mediante el estado de cada elemento. El catalogo podra evolucionar mediante futuras actualizaciones del contrato.
+
+## Errores HTTP
+
+| Situacion | HTTP |
+|---|---:|
+| Lote valido, aunque algunos manifiestos fallen | 200 |
+| Payload invalido, duplicados, mas de 100 manifiestos o ventana explicita de fechas invalida | 422 |
+| `GET /v1/health` disponible | 200 |
+| `GET /v1/health/portal` disponible | 200 |
+| Portal no disponible en health | 503 |
+
+## Cambio respecto del contrato inicial
+
+El contrato inicial recibia `manifiesto` y devolvia un solo `ResultadoTICA`. Desde el 2026-07-14:
+
+- El request publico usa `manifiestos`, una lista del mismo identificador ya definido en el proyecto.
+- `fecha_inicio` pasa a ser opcional; su ausencia conserva el campo vacio de TICA.
+- La lista se utiliza incluso para un solo manifiesto.
+- La respuesta usa cada manifiesto como clave de primer nivel.
+- Bajo cada clave aparecen directamente los datos solicitados, sin `regla` ni `resultados`.
+- El orquestador unitario se conserva internamente y se invoca una vez por manifiesto.

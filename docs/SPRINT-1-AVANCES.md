@@ -11,7 +11,7 @@ Documento vivo para registrar el avance del Sprint 1 del proyecto Dokka Scrappin
 | Estado | Completado - Hito M1 aprobado |
 | Avance | 9 de 9 tareas completadas |
 | Fecha de inicio del seguimiento | 2026-07-13 |
-| Ultima actualizacion | 2026-07-13 |
+| Ultima actualizacion | 2026-07-14 |
 | Ubicacion del proyecto | `scrapping-tica/` |
 | Entorno virtual vigente | `scrapping-tica/.venv/` (excluido de Git) |
 | Fuente principal | `Tareas_Dokka_Scrapping.md` |
@@ -36,7 +36,7 @@ Estado al 2026-07-13:
 - **Completado:** TICA-018, contrato aprobado y hito M1 cerrado.
 - **Siguiente fase:** Sprint 2, modalidad aerea; TICA-020 fixtures en inicio.
 
-La entrada vigente es `manifiesto` + `fecha_fin`. El usuario no selecciona modalidad. El codigo productivo busca el conocimiento, lee Master y clasifica internamente como aereo o maritimo. Terrestre no forma parte del alcance actual.
+La entrada publica vigente, actualizada el 2026-07-14, es `manifiestos` (lista de 1 a 100) + `fecha_fin`, con `fecha_inicio` opcional. Si el inicio se omite, queda vacio como en TICA; si se envia, la ventana inclusiva no supera 15 dias. El usuario no selecciona modalidad. Cada manifiesto se procesa secuencialmente, busca el conocimiento, lee Master y se clasifica como aereo o maritimo. Terrestre no forma parte del alcance actual.
 
 ## Definicion de la Fase 1
 
@@ -62,13 +62,13 @@ El Sprint 1 comenzo sin estructura productiva. TICA-010 creo `pyproject.toml`, `
 - `partidas_arancelarias` y `valor_aduanas_impuestos` fueron retirados del alcance y no deben ser campos requeridos del contrato actual.
 - No se deben inventar datos. Las ausencias y fallos se expresan mediante estados normalizados.
 - Estados del proyecto: `ok`, `pending`, `stale`, `unavailable`, `needs_review`, `not_found` y `not_implemented`.
-- La entrada inicial no pide modalidad: recibe `manifiesto` y `fecha_fin`.
+- La entrada publica no pide modalidad: recibe `manifiestos`, `fecha_fin` y una `fecha_inicio` opcional. El modelo unitario `ConsultaInput` con un solo `manifiesto` se conserva exclusivamente dentro del orquestador.
 - La modalidad se detecta despues de buscar el conocimiento y leer `Desc Descarga` en Master: Caldera, Moin o Puerto Limon indican maritimo; otras descargas indican aereo.
 - Terrestre queda fuera del alcance actual y no se intenta detectar ni despachar.
 - La cedula maritima usada para filtrar Depositos permanece como configuracion interna del flujo, no como selector de modalidad del usuario.
 - El DUA de movilizacion maritimo es interno y no puede devolverse como `dua_nacionalizacion`, salvo la excepcion confirmada para pedidos anticipados.
 - Si una seleccion es ambigua, el servicio debe responder `needs_review` en vez de adivinar.
-- La ventana maxima de consulta es de 15 dias.
+- Cuando se envia `fecha_inicio`, la ventana maxima de consulta es de 15 dias; sin ella, el campo queda vacio en TICA.
 - Un CAPTCHA no se resuelve: debe producir `unavailable` con motivo `captcha_required`.
 
 ## Resumen de los puntos del Sprint 1
@@ -137,7 +137,7 @@ Entregables previstos:
 Checklist:
 
 - [x] Definir modalidades y estados.
-- [x] Definir entrada unica por manifiesto y fecha fin, sin modalidad elegida por el usuario.
+- [x] Definir entrada publica de 1-100 manifiestos, `fecha_fin` obligatoria y `fecha_inicio` opcional, sin modalidad elegida por el usuario.
 - [x] Incorporar los 10 campos vigentes del contrato.
 - [x] Excluir como requeridos `partidas_arancelarias` y `valor_aduanas_impuestos`.
 - [x] Diferenciar DUA de movilizacion interno y DUA de nacionalizacion de salida.
@@ -194,8 +194,8 @@ Entregable previsto: `app/orchestrator/consulta.py`.
 Checklist:
 
 - [x] Validar la entrada antes de abrir el navegador.
-- [x] Exigir manifiesto y fecha fin, sin pedir modalidad.
-- [x] Aplicar ventana maxima de 15 dias.
+- [x] Exigir 1-100 manifiestos y `fecha_fin`, admitir `fecha_inicio` opcional y no pedir modalidad.
+- [x] Validar ventana maxima de 15 dias cuando el consumidor envia `fecha_inicio`.
 - [x] Buscar primero el conocimiento y despachar segun la modalidad detectada en Master.
 - [x] Integrar cache y ultima lectura buena.
 - [x] Mapear timeout/caida con cache a `stale`.
@@ -271,7 +271,7 @@ Checklist:
 
 Checklist:
 
-- [x] Revisar entrada unica por manifiesto y fecha fin.
+- [x] Revisar entrada por lote de manifiestos, `fecha_fin` obligatoria y `fecha_inicio` opcional.
 - [x] Revisar los 10 campos de salida vigentes.
 - [x] Confirmar que los campos retirados no sean obligatorios.
 - [x] Revisar los siete estados y sus motivos.
@@ -337,6 +337,7 @@ Agregar una fila por cada cambio relevante.
 | 2026-07-13 | TICA-018 | Se revisa OpenAPI contra Sprint 0, se documentan payloads, estados y errores, y se agrega 503 al contrato de portal health. | `docs/SPRINT-1-CONTRATO-API.md`; 67 tests; Ruff y mypy en verde | En revision |
 | 2026-07-13 | TICA-018 / M1 | Se aprueba el contrato: cantidades enteras y decisiones por `estado`; se cierra Sprint 1. | 71 tests; contrato y seguimiento actualizados | Completada |
 | 2026-07-13 | Correccion posterior a M1 | Se controla el event loop incompatible de Uvicorn `--reload` en Windows y se corrige el comando de ejecucion. | El portal health devuelve 503 en vez de 500; guia y README actualizados | Completada |
+| 2026-07-14 | Actualizacion contrato por lote y fechas | La API pasa de un manifiesto unico a 1-100 manifiestos, devuelve un objeto cuya clave es cada manifiesto y admite `fecha_inicio` opcional. | 83 tests; secuencialidad, fechas, aislamiento, aceptacion de mas de 10, validacion y OpenAPI cubiertos | Completada |
 
 ## Registro de decisiones
 
@@ -354,7 +355,7 @@ Agregar una fila por cada cambio relevante.
 | 2026-07-13 | Ningun modulo de `app/` puede importar la PoC. | Las reglas reutilizables se copian y adaptan a modulos productivos con pruebas propias. |
 | 2026-07-13 | Los flujos completos aereo y maritimo permanecen marcados como no migrados. | Su migracion corresponde a Sprint 2 y Sprint 3; Sprint 1 solo prepara la infraestructura y el despacho. |
 | 2026-07-13 | `ResultadoTICA.modalidad` permite `null` antes de la clasificacion. | Si TICA falla antes de leer Master, no corresponde inventar si el manifiesto es aereo o maritimo. |
-| 2026-07-13 | La ventana enviada a TICA incluye fecha fin y los 14 dias anteriores. | Cumple el tope de 15 dias definido para la consulta productiva. |
+| 2026-07-14 | `fecha_inicio` es opcional: omitida queda vacia en TICA; enviada se valida contra `fecha_fin` con maximo 15 dias inclusivos. | Iguala el comportamiento manual sin perder la validacion cuando el consumidor define una ventana. |
 | 2026-07-13 | El entorno de trabajo vigente vive en `scrapping-tica/.venv/`. | Deja el servicio autocontenido localmente; `.venv/` permanece fuera de Git mediante `.gitignore`. |
 | 2026-07-13 | Se ignoran salidas y capturas locales de la PoC. | Evita subir por accidente resultados o evidencias potencialmente sensibles a GitHub. |
 | 2026-07-13 | El log operativo no incluye manifiesto ni payload de entrada/salida. | Para soporte bastan correlacion, modalidad, estado y duracion; se minimiza la exposicion de datos. |
@@ -364,9 +365,12 @@ Agregar una fila por cada cambio relevante.
 | 2026-07-13 | `/health/portal` comprueba solo la portada de TICA y devuelve 503 si no responde. | Distingue salud del proceso y disponibilidad externa sin consultar manifiestos. |
 | 2026-07-13 | Los fallos de validacion usan HTTP 422; los resultados de negocio usan HTTP 200 con `estado` y `motivo`. | Separa errores del payload de estados propios de la consulta TICA. Aprobado en M1. |
 | 2026-07-13 | La indisponibilidad de `/health/portal` se documenta tambien como HTTP 503 en OpenAPI. | El contrato debe reflejar el comportamiento real del endpoint. |
-| 2026-07-13 | `bultos` y `peso_bruto` son enteros; el punto de TICA es separador de miles. | `3.000` representa `3000`, no el decimal `3`. |
+| 2026-07-15 | `bultos` y `peso_bruto` son enteros; TICA muestra tres decimales. | QA maritimo confirmo que `3.000` se publica como `3`. |
 | 2026-07-13 | RAGA y otros consumidores deciden por `estado`; el catalogo podra evolucionar. | Nuevos estados o cambios se incorporaran posteriormente mediante una actualizacion del contrato. |
 | 2026-07-13 | Uvicorn se ejecuta sin `--reload` en el desarrollo local de Windows. | La recarga activa un event loop que no soporta el subproceso requerido por Playwright. |
+| 2026-07-14 | La API publica recibe siempre `manifiestos` como lista, incluso cuando contiene uno. | Mantiene una forma uniforme de request y response para uno o varios manifiestos. |
+| 2026-07-14 | Los manifiestos se procesan secuencialmente, conservan el orden y comparten `fecha_fin` y la `fecha_inicio` opcional. | Evita paralelismo agresivo contra TICA y coincide con la serializacion del navegador. |
+| 2026-07-14 | Se aceptan 1-100 manifiestos unicos y un fallo individual no cancela el lote. | Limita la duracion/carga del endpoint sincronico y permite resultados independientes. |
 
 ## Evidencias y comandos de verificacion
 
@@ -401,5 +405,6 @@ Registrar aqui los comandos ejecutados y una sintesis del resultado, evitando co
 | 2026-07-13 | TICA-017 | Pruebas HTTP con transporte ASGI, sin levantar red ni consultar TICA | POST valido/422, health 200, portal 200/503 y los siete estados aprobados |
 | 2026-07-13 | TICA-018 | Pruebas del esquema OpenAPI | Entrada exacta, 10 campos, campos retirados ausentes, siete estados y respuesta 503 documentada |
 | 2026-07-13 | TICA-018 | Pytest, Ruff y mypy | 67 pruebas aprobadas; lint y tipado limpios; sin consultas a TICA vivo |
-| 2026-07-13 | TICA-018 / M1 | Pruebas de cantidades y contrato final | 71 pruebas aprobadas; `3.000`, `614.000` y `7450.000` convertidos a enteros; OpenAPI publica tipo integer |
+| 2026-07-15 | Correccion QA M3 | Normalizacion de cantidades | `3.000`, `614.000` y `7450.000` se convierten en `3`, `614` y `7450`; OpenAPI conserva tipo integer. |
 | 2026-07-13 | Correccion health portal | Reproduccion con event loop selector, Pytest, Ruff y mypy | Devuelve indisponibilidad controlada sin iniciar Playwright; 72 pruebas aprobadas, lint y tipado limpios |
+| 2026-07-14 | Contrato por lote y fechas | Pytest, Ruff, mypy y esquema OpenAPI | 83 pruebas aprobadas; request 1-100 manifiestos, inicio opcional, mas de 10 aceptados y respuesta indexada directamente por manifiesto |

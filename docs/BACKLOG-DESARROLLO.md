@@ -153,6 +153,11 @@ health responde 200; test de humo en verde.
 
 # FASE 2 — Modalidad aérea
 
+> Nota de trazabilidad: la planificacion vigente desglosa esta fase como TICA-020 a
+> TICA-026 en `TAREAS-DOKKA-SCRAPPING.md` y `SPRINT-2-AVANCES.md`. En este backlog
+> original, madre/hijo estaba agrupado en TICA-022 y tests figuraba como TICA-024.
+> Para ejecucion y seguimiento se usa la numeracion vigente de siete tareas.
+
 ## TICA-020 · Grabar fixtures del flujo aéreo · 3 h
 **Depende de:** F1 + caso real
 **Ruta:** `tests/fixtures/aereo/`
@@ -200,7 +205,9 @@ Sin DUA → `pending`.
 
 **Criterios de aceptación:** los tres casos en verde; ninguno toca TICA en vivo.
 
-> **Hito M2 — Aéreo en verde.** Handoff a QA para validación con casos reales.
+> **Hito M2 — Aéreo en verde. Completado 2026-07-15.** QA confirmado con los casos
+> disponibles. Cierre con riesgo residual aceptado: sin evidencia real para `sin_arribo`
+> y multi-ING, ambas ramas cubiertas mediante fixtures estructurales.
 
 ---
 
@@ -255,7 +262,8 @@ como nacionalización; caso consolidado multi-cédula que debe filtrar la correc
 
 **Criterios de aceptación:** los tres casos en verde; el test crítico falla si alguien rompe la regla dura.
 
-> **Hito M3 — Marítimo en verde.** Handoff a QA.
+> **Hito M3 — Marítimo en verde. Completado 2026-07-15.** QA aprobado con los casos
+> normal, anticipado y consolidado multilinea mediante la respuesta pública.
 
 ---
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from contextlib import AbstractAsyncContextManager
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from time import perf_counter
 from typing import Protocol
 from uuid import uuid4
@@ -19,6 +19,7 @@ from app.models import (
     DatosMomento1,
     DatosMomento2,
     DatosMomento3,
+    DatosMovimiento,
     EstadoConsulta,
     Modalidad,
     ResultadoTICA,
@@ -119,7 +120,11 @@ class ConsultaOrchestrator:
                 search = await self._search(
                     page=page,
                     numero=entrada.manifiesto,
-                    fecha_inicio=fecha_para_tica(self._fecha_inicio(entrada.fecha_fin)),
+                    fecha_inicio=(
+                        fecha_para_tica(entrada.fecha_inicio)
+                        if entrada.fecha_inicio is not None
+                        else None
+                    ),
                     fecha_fin=fecha_para_tica(entrada.fecha_fin),
                     evidencia_prefijo="produccion_conocimiento",
                 )
@@ -206,12 +211,6 @@ class ConsultaOrchestrator:
             return None
         return max(candidates, key=lambda result: result.consultado_en)
 
-    @staticmethod
-    def _fecha_inicio(fecha_fin: date) -> date:
-        """Incluye fecha fin y limita la ventana total a 15 dias."""
-
-        return fecha_fin - timedelta(days=14)
-
     @classmethod
     def _map_result(
         cls,
@@ -220,11 +219,14 @@ class ConsultaOrchestrator:
         raw: ResultadoEstrategia,
     ) -> ResultadoTICA:
         values = cls._values(raw)
+        movements = cls._movements(raw)
         raw_status = str(raw.get("estado", ""))
         dua = values.get("dua_nacionalizacion", "")
 
         if raw_status == "no_encontrado":
             status = EstadoConsulta.NOT_FOUND
+        elif raw_status == "needs_review":
+            status = EstadoConsulta.NEEDS_REVIEW
         elif raw_status == "modalidad_no_corresponde":
             status = EstadoConsulta.NEEDS_REVIEW
         elif raw_status == "sin_arribo" or not dua:
@@ -251,6 +253,23 @@ class ConsultaOrchestrator:
                 ),
                 bultos=cls._parse_integer(values.get("bultos")),
                 peso_bruto=cls._parse_integer(values.get("peso_bruto")),
+                movimientos=[
+                    DatosMovimiento(
+                        movimiento_inventario=cls._text_or_none(
+                            item.get("movimiento_inventario")
+                        ),
+                        almacen_fiscal=cls._text_or_none(item.get("almacen_fiscal")),
+                        fecha_ingreso_regimen=cls._parse_date(
+                            item.get("fecha_ingreso_regimen")
+                        ),
+                        fecha_movimiento_inventario=cls._parse_datetime(
+                            item.get("fecha_movimiento_inventario")
+                        ),
+                        bultos=cls._parse_integer(item.get("bultos")),
+                        peso_bruto=cls._parse_integer(item.get("peso_bruto")),
+                    )
+                    for item in movements
+                ],
             ),
             momento3=DatosMomento3(
                 dua_nacionalizacion=cls._text_or_none(dua),
@@ -282,11 +301,32 @@ class ConsultaOrchestrator:
         return {
             str(key): str(value).strip()
             for key, value in values.items()
-            if value is not None
+            if value is not None and not isinstance(value, (dict, list))
         }
 
     @staticmethod
+    def _movements(raw: ResultadoEstrategia) -> list[dict[str, str]]:
+        values = raw.get("valores")
+        if not isinstance(values, dict):
+            return []
+        movements = values.get("movimientos")
+        if not isinstance(movements, list):
+            return []
+        return [
+            {
+                str(key): str(value).strip()
+                for key, value in item.items()
+                if value is not None and not isinstance(value, (dict, list))
+            }
+            for item in movements
+            if isinstance(item, dict)
+        ]
+
+    @staticmethod
     def _reason(raw: ResultadoEstrategia) -> str | None:
+        explicit_reason = raw.get("motivo")
+        if explicit_reason:
+            return str(explicit_reason)[:300]
         observations = raw.get("observaciones")
         if isinstance(observations, list):
             text = "; ".join(str(item) for item in observations if item)
@@ -322,11 +362,12 @@ class ConsultaOrchestrator:
 
     @staticmethod
     def _parse_integer(value: str | None) -> int | None:
-        """Convierte cantidades TICA; un punto separa miles, no decimales."""
+        """Convierte cantidades TICA expresadas con tres decimales."""
 
         text = re.sub(r"[\s\u00a0]", "", (value or "").strip())
         if re.fullmatch(r"\d+", text):
             return int(text)
-        if re.fullmatch(r"\d+(?:[.,]\d{3})+", text):
-            return int(text.replace(".", "").replace(",", ""))
+        match = re.fullmatch(r"(\d+)[.,]0{3}", text)
+        if match:
+            return int(match.group(1))
         return None

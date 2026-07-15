@@ -1,5 +1,6 @@
 """Navegacion productiva compartida para la busqueda inicial en TICA."""
 
+from collections.abc import Awaitable, Callable
 from typing import cast
 
 from playwright.async_api import Error as PlaywrightError
@@ -13,6 +14,7 @@ from app.scraper.domain import (
 )
 
 TICA_URL = "https://portaltica.hacienda.go.cr/TicaExterno/"
+CapturadorHTML = Callable[[str, Page], Awaitable[None]]
 
 
 async def buscar_conocimiento(
@@ -21,6 +23,7 @@ async def buscar_conocimiento(
     fecha_fin: str,
     evidencia_prefijo: str,
     fecha_inicio: str | None = None,
+    capturador: CapturadorHTML | None = None,
 ) -> BusquedaConocimiento:
     """Busca una vez el conocimiento y lee Master para clasificar la modalidad."""
 
@@ -35,11 +38,13 @@ async def buscar_conocimiento(
     await page.locator("#vCGNROCON").fill(numero)
     await page.locator('input[name="BTN_ENTER1"]').click(timeout=10_000)
     await page.wait_for_timeout(4_000)
+    if capturador:
+        await capturador("01_resultado_conocimiento", page)
 
     found = await extraer_fila_conocimiento_con_links(page, numero)
     row = found[0] if found else None
     master_url = found[1] if found else None
-    master_row = await extraer_fila_master_conocimiento(page, master_url)
+    master_row = await extraer_fila_master_conocimiento(page, master_url, capturador)
     if row and master_row:
         row["razon_social"] = master_row.get("razon_social", "") or row.get(
             "razon_social", ""
@@ -142,6 +147,7 @@ def extraer_url_master(links: object, row: dict[str, str]) -> str | None:
 async def extraer_fila_master_conocimiento(
     page: Page,
     master_url: str | None,
+    capturador: CapturadorHTML | None = None,
 ) -> dict[str, str] | None:
     """Abre Master y extrae transportista y descarga reales."""
 
@@ -151,6 +157,8 @@ async def extraer_fila_master_conocimiento(
     await page.goto(master_url, wait_until="domcontentloaded", timeout=30_000)
     await page.wait_for_timeout(3_000)
     try:
+        if capturador:
+            await capturador("02_master", page)
         for row in await filas_tablas(page):
             if len(row) < 7:
                 continue
@@ -220,4 +228,3 @@ def valor_en_indice(row: list[str], index: int) -> str:
     if index >= len(row):
         return ""
     return limpiar_espacios(row[index])
-

@@ -12,6 +12,7 @@ Esta carpeta concentra los documentos vivos y cierres del proyecto `scrapping-ti
 - [Revision del contrato API - TICA-018](SPRINT-1-CONTRATO-API.md)
 - [Guia de uso y ejecucion de FastAPI](GUIA-FASTAPI.md)
 - [Seguimiento Sprint 2 - Modalidad aerea](SPRINT-2-AVANCES.md)
+- [Seguimiento Sprint 3 - Modalidad maritima](SPRINT-3-AVANCES.md)
 
 ## Guia FastAPI y contrato API
 
@@ -34,5 +35,15 @@ Los documentos generales de planificacion se mantienen en esta carpeta. Las evid
 ## Estado actual
 
 - Sprint 1: completado, 9 de 9 tareas; hito M1 aprobado.
-- Fase vigente: Sprint 2 - Modalidad aerea.
-- Siguiente tarea: TICA-020 - fixtures aereos sanitizados.
+- Sprint 2: completado, 7 de 7 tareas; hito M2 aprobado con limitacion documentada.
+- TICA-020 se cierra con excepcion aceptada: no se dispuso de casos reales sin arribo ni multi-ING; las ramas quedan cubiertas estructuralmente hasta poder revalidarlas.
+- TICA-026 completada: QA confirmado con los casos aereos disponibles.
+- Sprint 3 completado: TICA-030 a TICA-036 terminadas; M3 aprobado.
+- Siguiente fase: Sprint 4 - Integracion RAGA Orders.
+- La cedula maritima es configuracion interna; anticipados y conocimientos con varias lineas estan implementados.
+- Request vigente: `manifiestos` (1-100), `fecha_fin` obligatoria y `fecha_inicio` opcional.
+- Si se omite `fecha_inicio`, el campo queda vacio en TICA; si se envia, la ventana inclusiva admite hasta 15 dias.
+- Response vigente: objeto indexado directamente por manifiesto, sin secciones `regla` ni `resultados`.
+- El procesamiento es secuencial por manifiesto; aereo y maritimo estan migrados.
+
+`BACKLOG-DESARROLLO.md`, `TAREAS-DOKKA-SCRAPPING.md` y el documento del proceso manual son fuentes originales de planificacion y negocio. El contrato implementado y sus cambios posteriores se consultan en `SPRINT-1-CONTRATO-API.md` y `SPRINT-1-AVANCES.md`.

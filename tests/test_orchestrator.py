@@ -118,8 +118,12 @@ def buscar_resultado(
     )
 
 
-def input_data() -> ConsultaInput:
-    return ConsultaInput(manifiesto="872219087246", fecha_fin=date(2026, 7, 13))
+def input_data(*, fecha_inicio: date | None = None) -> ConsultaInput:
+    return ConsultaInput(
+        manifiesto="872219087246",
+        fecha_inicio=fecha_inicio,
+        fecha_fin=date(2026, 7, 13),
+    )
 
 
 def complete_raw() -> ResultadoEstrategia:
@@ -146,9 +150,9 @@ def crear_cache() -> InMemoryResultCache:
 
 @pytest.mark.parametrize(
     ("texto", "esperado"),
-    [("3.000", 3000), ("614.000", 614000), ("7450.000", 7450000), ("42", 42)],
+    [("3.000", 3), ("614.000", 614), ("7450.000", 7450), ("42", 42)],
 )
-def test_cantidades_tica_interpretan_punto_como_separador_de_miles(
+def test_cantidades_tica_interpretan_tres_decimales(
     texto: str,
     esperado: int,
 ) -> None:
@@ -208,11 +212,26 @@ async def test_consulta_ok_mapea_datos_y_guarda_cache() -> None:
     assert result.estado is EstadoConsulta.OK
     assert result.modalidad is Modalidad.AEREO
     assert result.momento3.dua_nacionalizacion == "005-2026-392058"
-    assert result.momento2.bultos == 1000
-    assert result.momento2.peso_bruto == 3000
+    assert result.momento2.bultos == 1
+    assert result.momento2.peso_bruto == 3
     assert await cache.obtener(Modalidad.AEREO, "872219087246") is not None
-    assert search.arguments["fecha_inicio"] == "29/06/2026"
+    assert search.arguments["fecha_inicio"] is None
     assert search.arguments["fecha_fin"] == "13/07/2026"
+
+
+@pytest.mark.asyncio
+async def test_consulta_envia_fecha_inicio_cuando_fue_proporcionada() -> None:
+    search = FakeSearch(buscar_resultado())
+    orchestrator = ConsultaOrchestrator(
+        browser=FakeBrowser(),
+        cache=crear_cache(),
+        dispatcher=FakeDispatcher(complete_raw()),
+        search=search,
+    )
+
+    await orchestrator.consultar(input_data(fecha_inicio=date(2026, 7, 1)))
+
+    assert search.arguments["fecha_inicio"] == "01/07/2026"
 
 
 @pytest.mark.asyncio
@@ -230,6 +249,37 @@ async def test_manifiesto_no_encontrado_retorna_not_found() -> None:
     assert result.estado is EstadoConsulta.NOT_FOUND
     assert result.modalidad is None
     assert dispatcher.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_conocimiento_sin_arribo_retorna_pending_y_motivo_especifico() -> None:
+    cache = crear_cache()
+    dispatcher = FakeDispatcher(
+        {
+            "estado": "sin_arribo",
+            "motivo": "arribo_pendiente",
+            "valores": {
+                "fecha_arribo": "",
+                "transportista": "TRANSPORTISTA SANITIZADO",
+            },
+        }
+    )
+    orchestrator = ConsultaOrchestrator(
+        browser=FakeBrowser(),
+        cache=cache,
+        dispatcher=dispatcher,
+        search=FakeSearch(buscar_resultado()),
+    )
+
+    result = await orchestrator.consultar(input_data())
+
+    assert result.estado is EstadoConsulta.PENDING
+    assert result.modalidad is Modalidad.AEREO
+    assert result.motivo == "arribo_pendiente"
+    assert result.momento1.fecha_arribo is None
+    assert result.momento2.movimiento_inventario is None
+    assert result.momento3.dua_nacionalizacion is None
+    assert await cache.cantidad() == 0
 
 
 @pytest.mark.asyncio
@@ -319,3 +369,38 @@ async def test_flujo_sin_dua_retorna_pending_y_no_se_cachea() -> None:
 
     assert result.estado is EstadoConsulta.PENDING
     assert await cache.cantidad() == 0
+
+
+@pytest.mark.asyncio
+async def test_maritimo_multilinea_publica_lista_sin_elegir_escalar() -> None:
+    raw = cast(
+        ResultadoEstrategia,
+        {
+            "estado": "ok",
+            "valores": {
+                "fecha_arribo": "26/05/26",
+                "movimientos": [
+                    {"movimiento_inventario": "55808682", "bultos": "422.000"},
+                    {"movimiento_inventario": "55808690", "bultos": "192.000"},
+                ],
+                "dua_nacionalizacion": "005-2026-414387",
+                "fecha_dua": "2026/06/16",
+            },
+        },
+    )
+    orchestrator = ConsultaOrchestrator(
+        browser=FakeBrowser(),
+        cache=crear_cache(),
+        dispatcher=FakeDispatcher(raw),
+        search=FakeSearch(buscar_resultado("maritimo")),
+    )
+
+    result = await orchestrator.consultar(input_data())
+
+    assert result.modalidad is Modalidad.MARITIMO
+    assert result.momento2.movimiento_inventario is None
+    assert [item.movimiento_inventario for item in result.momento2.movimientos] == [
+        "55808682",
+        "55808690",
+    ]
+    assert [item.bultos for item in result.momento2.movimientos] == [422, 192]

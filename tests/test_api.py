@@ -1,30 +1,37 @@
 """Pruebas de humo y contrato HTTP de FastAPI."""
 
 from datetime import date
-from typing import Literal
 
 import pytest
 from httpx import ASGITransport, AsyncClient, Response
 
-from app.api.routes import get_orchestrator, get_portal_health_checker
+from app.api.routes import get_lote_orchestrator, get_portal_health_checker
 from app.config import Settings
 from app.main import create_app
-from app.models import ConsultaInput, EstadoConsulta, Modalidad, ResultadoTICA
+from app.models import (
+    ConsultaLoteInput,
+    ConsultaLoteResultado,
+    EstadoConsulta,
+    Modalidad,
+    ResultadoManifiesto,
+)
 
 
-class FakeOrchestrator:
+class FakeLoteOrchestrator:
     def __init__(self, estado: EstadoConsulta = EstadoConsulta.NOT_IMPLEMENTED) -> None:
         self.estado = estado
-        self.entrada: ConsultaInput | None = None
+        self.entrada: ConsultaLoteInput | None = None
 
-    async def consultar(self, entrada: ConsultaInput) -> ResultadoTICA:
+    async def consultar(self, entrada: ConsultaLoteInput) -> ConsultaLoteResultado:
         self.entrada = entrada
-        return ResultadoTICA(
-            estado=self.estado,
-            modalidad=Modalidad.AEREO,
-            identificador=entrada.manifiesto,
-            motivo="respuesta_de_prueba",
-        )
+        return {
+            manifest: ResultadoManifiesto(
+                estado=self.estado,
+                modalidad=Modalidad.AEREO,
+                motivo="respuesta_de_prueba",
+            )
+            for manifest in entrada.manifiestos
+        }
 
 
 class FakePortalChecker:
@@ -39,13 +46,13 @@ async def solicitar(
     method: str,
     path: str,
     *,
-    orchestrator: FakeOrchestrator | None = None,
+    orchestrator: FakeLoteOrchestrator | None = None,
     portal_available: bool = True,
     json_body: object | None = None,
 ) -> Response:
     application = create_app(Settings(app_env="test"))
-    application.dependency_overrides[get_orchestrator] = lambda: (
-        orchestrator or FakeOrchestrator()
+    application.dependency_overrides[get_lote_orchestrator] = lambda: (
+        orchestrator or FakeLoteOrchestrator()
     )
     application.dependency_overrides[get_portal_health_checker] = lambda: (
         FakePortalChecker(portal_available)
@@ -83,13 +90,13 @@ async def test_health_portal_responde_503_cuando_tica_no_esta_disponible() -> No
 
 @pytest.mark.asyncio
 async def test_consulta_invalida_responde_422_sin_llamar_orquestador() -> None:
-    orchestrator = FakeOrchestrator()
+    orchestrator = FakeLoteOrchestrator()
 
     response = await solicitar(
         "POST",
         "/v1/consultas",
         orchestrator=orchestrator,
-        json_body={"manifiesto": ""},
+        json_body={"manifiestos": []},
     )
 
     assert response.status_code == 422
@@ -97,21 +104,45 @@ async def test_consulta_invalida_responde_422_sin_llamar_orquestador() -> None:
 
 
 @pytest.mark.asyncio
-async def test_consulta_valida_delega_manifiesto_y_fecha_fin() -> None:
-    orchestrator = FakeOrchestrator()
+async def test_un_manifiesto_usa_el_mismo_contrato_de_lote() -> None:
+    orchestrator = FakeLoteOrchestrator()
 
     response = await solicitar(
         "POST",
         "/v1/consultas",
         orchestrator=orchestrator,
-        json_body={"manifiesto": "ENGB2600229", "fecha_fin": "2026-07-13"},
+        json_body={"manifiestos": ["ENGB2600229"], "fecha_fin": "2026-07-13"},
     )
 
     assert response.status_code == 200
     assert orchestrator.entrada is not None
-    assert orchestrator.entrada.manifiesto == "ENGB2600229"
+    assert orchestrator.entrada.manifiestos == ["ENGB2600229"]
+    assert orchestrator.entrada.fecha_inicio is None
     assert orchestrator.entrada.fecha_fin == date(2026, 7, 13)
-    assert response.json()["estado"] == "not_implemented"
+    body = response.json()
+    assert list(body) == ["ENGB2600229"]
+    assert body["ENGB2600229"]["estado"] == "not_implemented"
+    assert "manifiesto" not in body["ENGB2600229"]
+    assert "identificador" not in body["ENGB2600229"]
+
+
+@pytest.mark.asyncio
+async def test_varios_manifiestos_conservan_orden_y_resultado_independiente() -> None:
+    response = await solicitar(
+        "POST",
+        "/v1/consultas",
+        json_body={
+            "manifiestos": ["MANIFIESTO-A", "MANIFIESTO-B", "MANIFIESTO-C"],
+            "fecha_fin": "2026-07-13",
+        },
+    )
+
+    assert response.status_code == 200
+    assert list(response.json()) == [
+        "MANIFIESTO-A",
+        "MANIFIESTO-B",
+        "MANIFIESTO-C",
+    ]
 
 
 @pytest.mark.parametrize("estado", list(EstadoConsulta))
@@ -120,33 +151,48 @@ async def test_api_serializa_todos_los_estados(estado: EstadoConsulta) -> None:
     response = await solicitar(
         "POST",
         "/v1/consultas",
-        orchestrator=FakeOrchestrator(estado),
-        json_body={"manifiesto": "ENGB2600229", "fecha_fin": "2026-07-13"},
+        orchestrator=FakeLoteOrchestrator(estado),
+        json_body={"manifiestos": ["MANIFIESTO-A"], "fecha_fin": "2026-07-13"},
     )
 
-    body: dict[str, Literal[
-        "ok",
-        "pending",
-        "stale",
-        "unavailable",
-        "needs_review",
-        "not_found",
-        "not_implemented",
-    ] | object] = response.json()
     assert response.status_code == 200
-    assert body["estado"] == estado.value
+    assert response.json()["MANIFIESTO-A"]["estado"] == estado.value
 
 
-def test_openapi_exige_solo_manifiesto_y_fecha_fin_como_entrada() -> None:
+def test_openapi_exige_manifiestos_y_fecha_fin_como_entrada() -> None:
     schema = create_app(Settings(app_env="test")).openapi()
-    input_schema = schema["components"]["schemas"]["ConsultaInput"]
+    input_schema = schema["components"]["schemas"]["ConsultaLoteInput"]
 
-    assert set(input_schema["required"]) == {"manifiesto", "fecha_fin"}
-    assert set(input_schema["properties"]) == {"manifiesto", "fecha_fin"}
+    assert set(input_schema["required"]) == {"manifiestos", "fecha_fin"}
+    assert set(input_schema["properties"]) == {
+        "manifiestos",
+        "fecha_inicio",
+        "fecha_fin",
+    }
+    assert input_schema["properties"]["manifiestos"]["minItems"] == 1
+    assert input_schema["properties"]["manifiestos"]["maxItems"] == 100
     assert input_schema["additionalProperties"] is False
 
 
-def test_openapi_contiene_los_diez_campos_y_excluye_los_retirados() -> None:
+def test_openapi_respuesta_publica_usa_manifiesto_como_clave() -> None:
+    openapi = create_app(Settings(app_env="test")).openapi()
+    schemas = openapi["components"]["schemas"]
+    response_schema = openapi["paths"]["/v1/consultas"]["post"]["responses"]["200"][
+        "content"
+    ]["application/json"]["schema"]
+    response_schema = schemas[response_schema["$ref"].rsplit("/", 1)[-1]]
+    item_fields = set(schemas["ResultadoManifiesto"]["properties"])
+
+    assert response_schema["type"] == "object"
+    assert response_schema["additionalProperties"]["$ref"].endswith(
+        "/ResultadoManifiesto"
+    )
+    assert "manifiesto" not in item_fields
+    assert "identificador" not in item_fields
+    assert {"momento1", "momento2", "momento3"} <= item_fields
+
+
+def test_openapi_contiene_campos_confirmados_y_movimientos_maritimos() -> None:
     schemas = create_app(Settings(app_env="test")).openapi()["components"]["schemas"]
     fields = {
         *schemas["DatosMomento1"]["properties"],
@@ -165,6 +211,7 @@ def test_openapi_contiene_los_diez_campos_y_excluye_los_retirados() -> None:
         "peso_bruto",
         "dua_nacionalizacion",
         "fecha_dua",
+        "movimientos",
     }
     assert "partidas_arancelarias" not in fields
     assert "valor_aduanas_impuestos" not in fields
