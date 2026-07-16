@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: dokka-tica-scraper
+    runtime: docker
+    plan: free
+    branch: scraping-docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /v1/health
+    autoDeployTrigger: commit
+    envVars:
+      - key: TICA_APP_ENV
+        value: production
+      - key: TICA_LOG_LEVEL
+        value: INFO
+      - key: TICA_BROWSER_HEADLESS
+        value: "true"

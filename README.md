@@ -132,6 +132,71 @@ Cada clave de primer nivel es el manifiesto recibido y su valor contiene los dat
 Los flujos aereo y maritimo estan migrados y validados. Sprint 4 integra estas respuestas
 con RAGA Orders.
 
+## Docker
+
+Construir la imagen desde la raiz del repositorio:
+
+```bash
+docker build -t dokka-tica-scraper .
+```
+
+Ejecutar el servicio localmente:
+
+```bash
+docker run --rm -p 10000:10000 -e PORT=10000 dokka-tica-scraper
+```
+
+Comprobar la API en `http://localhost:10000/v1/health`. El contenedor instala
+Chromium y sus dependencias Linux durante la construccion y ejecuta un solo worker
+de Uvicorn para mantener serializadas las sesiones contra TICA.
+
+## Despliegue manual en Render
+
+1. Crear un **Web Service** y conectar el repositorio
+   `https://github.com/garridopatricio/scraping.git`.
+2. Seleccionar la rama `scraping-docker` y el runtime **Docker**.
+3. Seleccionar el plan **Free**. Render detectara el `Dockerfile` en la raiz.
+4. Configurar el health check como `/v1/health` y crear el servicio.
+
+`render.yaml` contiene la misma configuracion para poder usar un Blueprint si se
+prefiere. No se debe usar `/v1/health/portal` como health check de despliegue,
+porque esa ruta tambien depende de la disponibilidad externa de TICA.
+
+Cuando Render asigne la URL publica, la consulta principal estara disponible en
+`POST https://<servicio>.onrender.com/v1/consultas`.
+
+Ejemplo con curl:
+
+```bash
+curl -X POST "https://<servicio>.onrender.com/v1/consultas" \
+  -H "Content-Type: application/json" \
+  -d '{"manifiestos":["ENGB2600229"],"fecha_fin":"2026-07-14"}'
+```
+
+Ejemplo con PowerShell:
+
+```powershell
+$body = @{
+    manifiestos = @("ENGB2600229")
+    fecha_fin = "2026-07-14"
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+    -Method Post `
+    -Uri "https://<servicio>.onrender.com/v1/consultas" `
+    -ContentType "application/json" `
+    -Body $body | ConvertTo-Json -Depth 10
+```
+
+El endpoint queda publico temporalmente y sin API key. Los resultados de negocio
+normalmente responden HTTP 200, pero el consumidor siempre debe revisar `estado`
+para distinguir `ok`, `pending`, `not_found`, `unavailable` y los demas estados
+documentados. Un CAPTCHA se informa como `unavailable/captcha_required`.
+
+En el plan gratuito, Render suspende el servicio despues de un periodo sin trafico;
+el primer request posterior puede tardar mientras inicia el contenedor. El sistema
+de archivos es efimero y Playwright puede alcanzar el limite de memoria del plan.
+
 ## Estructura
 
 ```text
@@ -143,8 +208,11 @@ scrapping-tica/
 |   `-- scraper/
 |-- docs/
 |-- tests/
+|-- .dockerignore
 |-- .env.example
 |-- .gitignore
+|-- Dockerfile
+|-- render.yaml
 `-- pyproject.toml
 ```
 
