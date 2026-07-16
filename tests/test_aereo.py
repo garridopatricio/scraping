@@ -4,15 +4,20 @@ import re
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import cast
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from app.scraper.aereo import (
     MovimientoAereo,
     extraer_deposito,
     extraer_detenciones,
     extraer_dua,
+    extraer_totales_dua_anticipado,
     movimientos_desde_filas,
     seleccionar_movimiento_hijo,
 )
+from app.scraper.domain import extraer_estado_final, limpiar_espacios
 from app.scraper.fixture_html import sanitizar_html
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "aereo"
@@ -66,6 +71,15 @@ def movimiento(numero: str, consignatario: str = "CONSIGNATARIO-SANITIZADO") -> 
 def test_selecciona_unico_movimiento_ing() -> None:
     candidato = movimiento("200")
     assert seleccionar_movimiento_hijo([candidato]) == candidato
+
+
+def test_aereo_anticipado_extrae_totales_desde_detalle_dua() -> None:
+    texto = "Lugar de Destino: -\nTotal Bultos: 12.000\nTotal Peso: Bruto: 345.000"
+
+    assert extraer_totales_dua_anticipado(texto) == {
+        "bultos": "12.000",
+        "peso_bruto": "345.000",
+    }
 
 
 def test_ambiguedad_no_adivina() -> None:
@@ -180,6 +194,38 @@ def test_fixture_real_dua_conserva_formato_parseable() -> None:
     parser.feed((FIXTURE_DIR / "ok_hawb" / "07_duas.html").read_text(encoding="utf-8"))
     filas = [cast(list[str], fila["celdas"]) for fila in parser.filas]
     assert extraer_dua(filas)["dua_nacionalizacion"] == "005-2026-999999"
+
+
+def test_fixture_real_dua_contiene_estado_final_visible() -> None:
+    contenido = (FIXTURE_DIR / "ok_hawb" / "08_detalle_dua.html").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(r'id="span_vDUASTSDSC"[^>]*>([^<]*)', contenido)
+
+    assert match is not None
+    assert limpiar_espacios(match.group(1)) == "Autorizacion de Levante"
+
+
+@pytest.mark.asyncio
+async def test_estado_final_conserva_otro_texto_visible_y_limpia_espacios() -> None:
+    page = MagicMock()
+    locator = MagicMock()
+    locator.count = AsyncMock(return_value=1)
+    locator.first.inner_text = AsyncMock(return_value="  En proceso   de revision  ")
+    page.locator.return_value = locator
+
+    assert await extraer_estado_final(page) == "En proceso de revision"
+    page.locator.assert_called_once_with("#span_vDUASTSDSC")
+
+
+@pytest.mark.asyncio
+async def test_estado_final_ausente_devuelve_vacio() -> None:
+    page = MagicMock()
+    locator = MagicMock()
+    locator.count = AsyncMock(return_value=0)
+    page.locator.return_value = locator
+
+    assert await extraer_estado_final(page) == ""
 
 
 def test_fixture_real_sin_stock_no_contiene_movimiento_ing() -> None:

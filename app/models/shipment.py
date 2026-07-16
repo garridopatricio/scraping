@@ -115,6 +115,7 @@ class DatosMomento3(ModeloTICA):
 
     dua_nacionalizacion: str | None = Field(default=None, min_length=1, max_length=100)
     fecha_dua: date | None = None
+    estado_final: str | None = Field(default=None, min_length=1, max_length=300)
 
 
 class ContextoMaritimo(ModeloTICA):

@@ -10,6 +10,7 @@ from app.scraper.maritimo import (
     completar_dua_movilizacion,
     extraer_dua_movilizacion,
     extraer_lineas,
+    extraer_totales_dua_anticipado,
     lineas_desde_filas,
     movimientos_por_cedula,
     ventana_mes,
@@ -84,6 +85,38 @@ def test_anticipado_conserva_dua_y_no_inventa_destino() -> None:
     assert resultado.anticipado is True
     assert resultado.dua == "006-2026-007220"
     assert resultado.almacen_destino == ""
+
+
+def test_maritimo_no_es_anticipado_con_codigo_y_almacen() -> None:
+    original = DuaMovilizacion("006", "2026", "007220", "A102", "19/01/26", "")
+    resultado = completar_dua_movilizacion(
+        original,
+        "Lugar de Destino: A134 - ALMACEN FISCAL\nFecha de Registro: 19/01/26",
+    )
+
+    assert resultado.anticipado is False
+    assert resultado.deposito_destino == "A134"
+    assert resultado.almacen_destino == "ALMACEN FISCAL"
+
+
+def test_maritimo_es_anticipado_si_el_almacen_esta_vacio() -> None:
+    original = DuaMovilizacion("006", "2026", "007220", "A102", "19/01/26", "")
+    resultado = completar_dua_movilizacion(
+        original, "Lugar de Destino: A134\nFecha de Registro: 19/01/26"
+    )
+
+    assert resultado.anticipado is True
+    assert resultado.almacen_destino == ""
+
+
+def test_anticipado_extrae_bultos_y_peso_del_mismo_dua() -> None:
+    filas = _filas_fixture("anticipado", "05_detalle_dua_movilizacion_linea_01.html")
+    texto = "\n".join(" ".join(cast(list[str], fila["celdas"])) for fila in filas)
+
+    assert extraer_totales_dua_anticipado(texto) == {
+        "bultos": "260.000",
+        "peso_bruto": "3900.000",
+    }
 
 
 def test_consolidado_filtra_cedula_estado_ing_y_conserva_enlaces_de_fila() -> None:
@@ -162,6 +195,20 @@ def test_fixture_real_anticipado_no_incluye_pantalla_deposito() -> None:
     archivos = {path.name for path in (FIXTURE_DIR / "anticipado").glob("*.html")}
     assert len(lineas_desde_filas(_filas_fixture("anticipado", "03_lineas.html"))) == 1
     assert not any(nombre.startswith("06_deposito") for nombre in archivos)
+
+
+def test_fixtures_finales_maritimos_contienen_estado_visible() -> None:
+    rutas = [
+        FIXTURE_DIR / "normal_una_linea" / "09_detalle_dua_nacionalizacion.html",
+        FIXTURE_DIR / "consolidado_multilinea" / "09_detalle_dua_nacionalizacion.html",
+        FIXTURE_DIR / "anticipado" / "05_detalle_dua_movilizacion_linea_01.html",
+    ]
+
+    for ruta in rutas:
+        contenido = ruta.read_text(encoding="utf-8")
+        match = re.search(r'id="span_vDUASTSDSC"[^>]*>([^<]*)', contenido)
+        assert match is not None
+        assert " ".join(match.group(1).split()) == "Autorizacion de Levante"
 
 
 def test_fixtures_maritimos_estan_sanitizados() -> None:

@@ -274,6 +274,7 @@ class ConsultaOrchestrator:
             momento3=DatosMomento3(
                 dua_nacionalizacion=cls._text_or_none(dua),
                 fecha_dua=cls._parse_date(values.get("fecha_dua")),
+                estado_final=cls._text_or_none(values.get("estado_final")),
             ),
             motivo=cls._reason(raw),
         )

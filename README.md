@@ -14,7 +14,7 @@ El proyecto usa FastAPI, Pydantic y Playwright. La prueba de concepto ya valido 
 | Sprint 1 - Infra base | Crear arquitectura, modelos, navegador, estrategias, cache, logging, API y contrato. | **Completado**. 9 de 9 tareas; hito M1 aprobado. |
 | Sprint 2 - Modalidad aerea | Migrar el flujo aereo, preparar fixtures, implementar los tres momentos y validar con QA. | **Completado**. 7 de 7 tareas; M2 aprobado con limitacion documentada por falta de casos reales sin arribo y multi-ING. |
 | Sprint 3 - Modalidad maritima | Migrar el flujo maritimo, sus filtros y la regla de DUA de nacionalizacion. | **Completado**. 7 de 7 tareas; M3 aprobado. |
-| Sprint 4 - Integracion RAGA Orders | Integrar el cliente HTTP, los campos TICA y su visualizacion en RAGA Orders. | **Pendiente**. |
+| Sprint 4 - Integracion RAGA Orders | Integrar automaticamente Shipping Documents con TICA. | **Completado localmente**. QA con 8 SD, sin cambios de esquema. |
 | Sprint 5 - QA integral y cierre | Validar estados, degradacion, CAPTCHA y reglas con casos reales. | **Pendiente**. |
 | Sprint 6 - Terrestre | Incorporar la modalidad terrestre si se confirma su necesidad y se reciben insumos. | **Condicional / fuera del alcance actual**. |
 
@@ -24,7 +24,7 @@ El proyecto usa FastAPI, Pydantic y Playwright. La prueba de concepto ya valido 
 - TICA-020: completada con excepcion aceptada. No se dispuso de casos reales sin arribo ni multi-ING; ambas ramas quedan cubiertas mediante fixtures estructurales y deben revalidarse cuando aparezcan datos reales.
 - TICA-026: completada; QA confirmado con los casos aereos disponibles.
 - Fase cerrada: Sprint 3 - Modalidad maritima; M3 aprobado.
-- Siguiente fase: Sprint 4 - Integracion RAGA Orders.
+- Sprint 4 implementado localmente: DOKKA consulta guias hijas por hora y al entrar en Embarques en local.
 - La cedula maritima `095144` es configuracion interna; anticipados y varias lineas ya estan implementados.
 - Entrada vigente: `manifiestos` (lista de 1 a 100), `fecha_fin` obligatoria y `fecha_inicio` opcional.
 - Ejecucion del lote: asincrona en I/O, pero secuencial por manifiesto y en orden de entrada.
@@ -43,6 +43,8 @@ El seguimiento vigente se mantiene en [Sprint 3 - avances](docs/SPRINT-3-AVANCES
 - [Avances del Sprint 1](docs/SPRINT-1-AVANCES.md)
 - [Avances del Sprint 2](docs/SPRINT-2-AVANCES.md)
 - [Avances del Sprint 3](docs/SPRINT-3-AVANCES.md)
+- [Avances del Sprint 4](docs/SPRINT-4-AVANCES.md)
+- [Integracion DOKKA-TICA](docs/INTEGRACION-SCRAPPING-DOKKA-TICA.md)
 
 ## Requisitos
 

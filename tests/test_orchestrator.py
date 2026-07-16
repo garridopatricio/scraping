@@ -140,6 +140,7 @@ def complete_raw() -> ResultadoEstrategia:
             "peso_bruto": "3.000",
             "dua_nacionalizacion": "005-2026-392058",
             "fecha_dua": "2026/06/08",
+            "estado_final": "Autorizacion de Levante",
         },
     }
 
@@ -212,6 +213,7 @@ async def test_consulta_ok_mapea_datos_y_guarda_cache() -> None:
     assert result.estado is EstadoConsulta.OK
     assert result.modalidad is Modalidad.AEREO
     assert result.momento3.dua_nacionalizacion == "005-2026-392058"
+    assert result.momento3.estado_final == "Autorizacion de Levante"
     assert result.momento2.bultos == 1
     assert result.momento2.peso_bruto == 3
     assert await cache.obtener(Modalidad.AEREO, "872219087246") is not None

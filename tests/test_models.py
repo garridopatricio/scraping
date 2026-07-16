@@ -107,6 +107,7 @@ def test_resultado_serializa_los_diez_campos_confirmados() -> None:
         momento3=DatosMomento3(
             dua_nacionalizacion="005-2026-414387",
             fecha_dua=date(2026, 6, 16),
+            estado_final="Autorizacion de Levante",
         ),
     )
 
@@ -124,6 +125,7 @@ def test_resultado_serializa_los_diez_campos_confirmados() -> None:
         "peso_bruto",
         "dua_nacionalizacion",
         "fecha_dua",
+        "estado_final",
         "movimientos",
     }
     assert "partidas_arancelarias" not in data

@@ -13,6 +13,8 @@ Esta carpeta concentra los documentos vivos y cierres del proyecto `scrapping-ti
 - [Guia de uso y ejecucion de FastAPI](GUIA-FASTAPI.md)
 - [Seguimiento Sprint 2 - Modalidad aerea](SPRINT-2-AVANCES.md)
 - [Seguimiento Sprint 3 - Modalidad maritima](SPRINT-3-AVANCES.md)
+- [Seguimiento Sprint 4 - Integracion DOKKA-TICA](SPRINT-4-AVANCES.md)
+- [Integracion automatica Scrapping DOKKA-TICA](INTEGRACION-SCRAPPING-DOKKA-TICA.md)
 
 ## Guia FastAPI y contrato API
 
@@ -39,7 +41,7 @@ Los documentos generales de planificacion se mantienen en esta carpeta. Las evid
 - TICA-020 se cierra con excepcion aceptada: no se dispuso de casos reales sin arribo ni multi-ING; las ramas quedan cubiertas estructuralmente hasta poder revalidarlas.
 - TICA-026 completada: QA confirmado con los casos aereos disponibles.
 - Sprint 3 completado: TICA-030 a TICA-036 terminadas; M3 aprobado.
-- Siguiente fase: Sprint 4 - Integracion RAGA Orders.
+- Sprint 4 implementado y validado localmente con 8 Shipping Documents.
 - La cedula maritima es configuracion interna; anticipados y conocimientos con varias lineas estan implementados.
 - Request vigente: `manifiestos` (1-100), `fecha_fin` obligatoria y `fecha_inicio` opcional.
 - Si se omite `fecha_inicio`, el campo queda vacio en TICA; si se envia, la ventana inclusiva admite hasta 15 dias.

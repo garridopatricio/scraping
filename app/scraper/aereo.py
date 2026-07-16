@@ -10,7 +10,7 @@ from playwright.async_api import Page
 
 from app.models import ConsultaInput, Modalidad
 from app.scraper.base import EstrategiaModalidad, ResultadoEstrategia
-from app.scraper.domain import BusquedaConocimiento, limpiar_espacios
+from app.scraper.domain import BusquedaConocimiento, extraer_estado_final, limpiar_espacios
 from app.scraper.portal import CapturadorHTML
 
 TICA_URL = "https://portaltica.hacienda.go.cr/TicaExterno/"
@@ -66,6 +66,19 @@ def extraer_deposito(texto: str) -> str:
     return limpiar_espacios(" ".join(match.groups())) if match else ""
 
 
+def extraer_totales_dua_anticipado(texto: str) -> dict[str, str]:
+    bultos_match = re.search(r"Total\s+Bultos:\s*([0-9.,]+)", texto, re.IGNORECASE)
+    peso_match = re.search(
+        r"Total\s+Peso:\s*Bruto:\s*([0-9.,]+)", texto, re.IGNORECASE
+    )
+    resultado: dict[str, str] = {}
+    if bultos_match:
+        resultado["bultos"] = limpiar_espacios(bultos_match.group(1))
+    if peso_match:
+        resultado["peso_bruto"] = limpiar_espacios(peso_match.group(1))
+    return resultado
+
+
 def extraer_dua(filas: list[list[str]]) -> dict[str, str]:
     """Obtiene numero y fecha del primer DUA confirmado de la tabla."""
 
@@ -90,6 +103,7 @@ def extraer_dua(filas: list[list[str]]) -> dict[str, str]:
 async def extraer_dua_desde_pagina(
     page: Page,
     capturador: CapturadorHTML | None = None,
+    incluir_totales: bool = False,
 ) -> dict[str, str]:
     """Abre el detalle del DUA, fuente prioritaria confirmada por el legacy."""
 
@@ -108,9 +122,12 @@ async def extraer_dua_desde_pagina(
     if capturador:
         await capturador("08_detalle_dua", page)
     texto = await page.locator("body").inner_text(timeout=5_000)
+    datos["estado_final"] = await extraer_estado_final(page)
     match = re.search(r"Fecha (?:de )?Registro:\s*([0-9/: ]+)", texto, flags=re.IGNORECASE)
     if match:
         datos["fecha_dua"] = limpiar_espacios(match.group(1)).split(" ")[0]
+    if incluir_totales:
+        datos.update(extraer_totales_dua_anticipado(texto))
     return datos
 
 
@@ -239,10 +256,11 @@ class EstrategiaAerea(EstrategiaModalidad):
         await self._capturar("05_movimiento", page)
         texto = await page.locator("body").inner_text(timeout=5_000)
         valores["almacen_fiscal"] = extraer_deposito(texto)
+        anticipado = valores["almacen_fiscal"] == ""
 
         detenciones_url = await _enlace(page, "hskdetent.aspx")
         duas_url = await _enlace(page, "hskduamov.aspx")
-        if detenciones_url:
+        if detenciones_url and not anticipado:
             await page.goto(detenciones_url, wait_until="domcontentloaded", timeout=30_000)
             await page.wait_for_timeout(3_000)
             await self._capturar("06_detenciones", page)
@@ -253,9 +271,14 @@ class EstrategiaAerea(EstrategiaModalidad):
             await page.goto(duas_url, wait_until="domcontentloaded", timeout=30_000)
             await page.wait_for_timeout(3_000)
             await self._capturar("07_duas", page)
-            valores.update(await extraer_dua_desde_pagina(page, self.capturador))
+            valores.update(
+                await extraer_dua_desde_pagina(
+                    page, self.capturador, incluir_totales=anticipado
+                )
+            )
 
         return {
             "estado": "ok" if valores.get("dua_nacionalizacion") else "sin_dua",
+            "motivo": "pedido_anticipado" if anticipado else None,
             "valores": valores,
         }

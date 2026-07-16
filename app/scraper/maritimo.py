@@ -14,7 +14,7 @@ from app.config import Settings, get_settings
 from app.models import ConsultaInput, Modalidad
 from app.scraper.aereo import extraer_detenciones
 from app.scraper.base import EstrategiaModalidad, ResultadoEstrategia
-from app.scraper.domain import BusquedaConocimiento, limpiar_espacios
+from app.scraper.domain import BusquedaConocimiento, extraer_estado_final, limpiar_espacios
 from app.scraper.portal import CapturadorHTML
 
 TICA_URL = "https://portaltica.hacienda.go.cr/TicaExterno/"
@@ -154,13 +154,12 @@ def extraer_dua_movilizacion(
 def completar_dua_movilizacion(dua: DuaMovilizacion, texto: str) -> DuaMovilizacion:
     destino_match = re.search(r"Lugar de Destino:\s*([^\n]+)", texto, flags=re.IGNORECASE)
     destino = limpiar_espacios(destino_match.group(1)) if destino_match else ""
-    valido = destino not in {"", "-"}
     deposito = dua.deposito_destino
     almacen = ""
-    if valido:
-        partes = destino.split("-", 1)
-        deposito = limpiar_espacios(partes[0]) or deposito
-        almacen = limpiar_espacios(partes[1]) if len(partes) > 1 else ""
+    destino_valido = re.fullmatch(r"([A-Z][0-9]{3})\s*-\s*(.+)", destino)
+    if destino_valido:
+        deposito = limpiar_espacios(destino_valido.group(1))
+        almacen = limpiar_espacios(destino_valido.group(2))
     fecha_match = re.search(r"Fecha (?:de )?Registro:\s*([0-9/: ]+)", texto, re.IGNORECASE)
     return DuaMovilizacion(
         aduana=dua.aduana,
@@ -171,8 +170,21 @@ def completar_dua_movilizacion(dua: DuaMovilizacion, texto: str) -> DuaMovilizac
         detalle_url=dua.detalle_url,
         lugar_destino=destino,
         almacen_destino=almacen,
-        anticipado=not valido,
+        anticipado=almacen == "",
     )
+
+
+def extraer_totales_dua_anticipado(texto: str) -> dict[str, str]:
+    bultos_match = re.search(r"Total\s+Bultos:\s*([0-9.,]+)", texto, re.IGNORECASE)
+    peso_match = re.search(
+        r"Total\s+Peso:\s*Bruto:\s*([0-9.,]+)", texto, re.IGNORECASE
+    )
+    resultado: dict[str, str] = {}
+    if bultos_match:
+        resultado["bultos"] = limpiar_espacios(bultos_match.group(1))
+    if peso_match:
+        resultado["peso_bruto"] = limpiar_espacios(peso_match.group(1))
+    return resultado
 
 
 def movimientos_por_cedula(
@@ -242,16 +254,22 @@ async def dua_desde_pagina(page: Page, capturador: CapturadorHTML | None) -> dic
         dua = "-".join(fila[:3])
         locator = page.get_by_text(fila[2], exact=True).first
         fecha = ""
+        estado_final = ""
         if await locator.count():
             await locator.click(timeout=10_000)
             await page.wait_for_timeout(3_000)
             if capturador:
                 await capturador("09_detalle_dua_nacionalizacion", page)
             texto = await page.locator("body").inner_text(timeout=5_000)
+            estado_final = await extraer_estado_final(page)
             match = re.search(r"Fecha (?:de )?Registro:\s*([0-9/: ]+)", texto, re.IGNORECASE)
             if match:
                 fecha = limpiar_espacios(match.group(1)).split(" ")[0]
-        return {"dua_nacionalizacion": dua, "fecha_dua": fecha}
+        return {
+            "dua_nacionalizacion": dua,
+            "fecha_dua": fecha,
+            "estado_final": estado_final,
+        }
     return {}
 
 
@@ -322,6 +340,7 @@ class EstrategiaMaritima(EstrategiaModalidad):
         duas_urls: list[str] = []
         linea_incompleta = False
         for indice_linea, linea in enumerate(lineas, start=1):
+            detalle_dua_texto = ""
             await page.goto(
                 linea.afectaciones_url,
                 wait_until="domcontentloaded",
@@ -345,14 +364,15 @@ class EstrategiaMaritima(EstrategiaModalidad):
                 await self._capturar(
                     f"05_detalle_dua_movilizacion_linea_{indice_linea:02d}", page
                 )
-                dua_mov = completar_dua_movilizacion(
-                    dua_mov, await page.locator("body").inner_text(timeout=5_000)
-                )
+                detalle_dua_texto = await page.locator("body").inner_text(timeout=5_000)
+                dua_mov = completar_dua_movilizacion(dua_mov, detalle_dua_texto)
             if dua_mov.anticipado:
                 valores.update(
                     {
                         "dua_nacionalizacion": dua_mov.dua,
                         "fecha_dua": dua_mov.fecha.split(" ")[0],
+                        "estado_final": await extraer_estado_final(page),
+                        **extraer_totales_dua_anticipado(detalle_dua_texto),
                     }
                 )
                 return {

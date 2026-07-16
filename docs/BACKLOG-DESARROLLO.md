@@ -277,6 +277,9 @@ como nacionalización; caso consolidado multi-cédula que debe filtrar la correc
 **múltiples conocimientos por embarque** (aéreo/marítimo).
 **Criterios de aceptación:** migración reversible; modelo y factory actualizados; no rompe embarques existentes.
 
+**Implementacion final:** completada sin migracion ni campos nuevos por decision funcional.
+Se reutilizan `dua_number`, `dua_released_date` y `notes` de `shipping_documents`.
+
 ## TICA-041 · UI detalle de orden con datos TICA · 4 h
 **Depende de:** TICA-040
 **Alcance:** mostrar en el detalle de orden consolidada los campos que vienen de TICA (DUA, fecha liberación,
@@ -290,6 +293,9 @@ movimiento, almacén, bultos, peso, partidas, valor) con su **estado** (ok / pen
 **Criterios de aceptación:** maneja los 7 estados; timeouts no rompen la vista; refresh sin recarga.
 
 > **Hito M4 — Integración RAGA.**
+
+> **Completado localmente 2026-07-15.** Cliente, Job, Command, scheduler, Livewire y QA
+> real con 8 SD. El detalle vigente esta en `INTEGRACION-SCRAPPING-DOKKA-TICA.md`.
 
 ---
 

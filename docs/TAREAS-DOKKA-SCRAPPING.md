@@ -25,9 +25,9 @@
 
 | Estado | Tareas |
 |---|---|
-| Done | 20 |
+| Done | 23 |
 | In Progress | 0 |
-| Pending | 21 |
+| Pending | 18 |
 
 ---
 
@@ -323,7 +323,7 @@
 ## Sprint 4 - Integración RAGA Orders
 
 ### TICA-040 - Campos RAGA Orders
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Modificar modelo de embarques.
 - **Entregable esperado:** Migraciones y modelos.
@@ -332,7 +332,7 @@
 - **Notas técnicas:** Laravel/RAGA Orders.
 
 ### TICA-041 - UI datos TICA en orden
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Frontend · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Agregar bloque de datos TICA en detalle.
 - **Entregable esperado:** UI funcional.
@@ -341,7 +341,7 @@
 - **Notas técnicas:** Inertia/React según RAGA.
 
 ### TICA-042 - Cliente HTTP servicio TICA
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Full Stack · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
 - **Descripción:** Consumir POST /v1/consultas desde RAGA.
 - **Entregable esperado:** Cliente integrado.

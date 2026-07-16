@@ -211,6 +211,7 @@ def test_openapi_contiene_campos_confirmados_y_movimientos_maritimos() -> None:
         "peso_bruto",
         "dua_nacionalizacion",
         "fecha_dua",
+        "estado_final",
         "movimientos",
     }
     assert "partidas_arancelarias" not in fields
