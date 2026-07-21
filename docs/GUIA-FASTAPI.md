@@ -151,6 +151,19 @@ Por eso se actualiza al cambiar el codigo. Esta guia, en cambio, explica el func
 
 ## 7. Endpoints disponibles
 
+La API tiene dos familias. `/v1/consultas` procesa conocimientos aéreos/marítimos de
+forma secuencial. `/v1/consultas-terrestres` administra desafíos DUA con CAPTCHA manual:
+
+| Método | Ruta | Uso |
+|---|---|---|
+| POST | `/v1/consultas-terrestres` | Crear sesión y obtener CAPTCHA base64 |
+| POST | `/v1/consultas-terrestres/{session_id}/resolver` | Enviar CAPTCHA; devuelve rechazo o `consultando` |
+| GET | `/v1/consultas-terrestres/{session_id}` | Consultar estado y resultado final |
+| POST | `/v1/consultas-terrestres/{session_id}/regenerar` | Solicitar técnicamente otra imagen |
+| DELETE | `/v1/consultas-terrestres/{session_id}` | Liberar página, contexto, navegador y sesión |
+
+El `DELETE` no elimina un DUA ni un Shipping Document. Solo limpia recursos temporales.
+
 ### `GET /v1/health`
 
 Comprueba que FastAPI esta ejecutandose.
@@ -325,7 +338,8 @@ La suite verifica, entre otros puntos:
 - Health 200 y portal health 200/503.
 - Serializacion de los estados.
 - Contrato OpenAPI.
-- Tipos enteros para `bultos` y `peso_bruto`.
+- `bultos` es entero y `peso_bruto` admite decimales; los separadores de miles se normalizan
+  antes de publicar (`5.000` → `5000`).
 
 ## 12. Configuracion
 
@@ -343,6 +357,15 @@ TICA_BROWSER_TIMEOUT_MS=30000
 No se debe subir el archivo `.env` si contiene configuracion privada.
 
 ## 13. Ejecucion en produccion
+
+La opción recomendada es un daemon administrado por Ploi que ejecute un único proceso
+Uvicorn sin `--reload`, escuche en `127.0.0.1` y reinicie automáticamente. Las sesiones
+terrestres viven en memoria: no se deben distribuir entre varios workers sin afinidad o
+un diseño adicional de estado compartido. Consulte `PASO-A-PRODUCCION-TICA.md`.
+
+`structlog` escribe JSON a stdout con correlación, tipo/número buscado, modalidad,
+estado y duración. Ploi debe capturar y rotar esa salida. El access log HTTP pertenece
+a Uvicorn y el log de errores de integración Laravel permanece en `storage/logs`.
 
 La forma definitiva de ejecutar y desplegar el servicio se definira junto con la infraestructura de produccion. En Windows, el comando local vigente se ejecuta sin `--reload` para mantener compatibilidad con Playwright.
 

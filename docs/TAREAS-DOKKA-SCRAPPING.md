@@ -18,7 +18,7 @@
 | Sprint 3 - Modalidad marítima | 7 | 36 |
 | Sprint 4 - Integración RAGA Orders | 3 | 12 |
 | Sprint 5 - QA integral y cierre | 4 | 18 |
-| Sprint 6 - Terrestre condicional | 5 | 20 |
+| Sprint 6 - Modalidad terrestre | 5 | 27 |
 | **Total** | **41** | **161** |
 
 ## Resumen por estado
@@ -63,7 +63,7 @@
 - **Descripción:** Crear script desechable para navegar TICA con casos reales.
 - **Entregable esperado:** Script de PoC.
 - **Criterios de aceptación:** Script corre por variables de entorno y registra login/CAPTCHA/campos visibles.
-- **Notas funcionales:** No intenta resolver CAPTCHA.
+- **Notas funcionales:** Esta tarea de PoC no resolvía CAPTCHA; Sprint 6 incorporó resolución humana terrestre.
 - **Notas técnicas:** Playwright Chromium, headless configurable.
 
 ### TICA-004 - Ejecutar PoC con casos reales
@@ -316,7 +316,7 @@
 - **Entregable esperado:** M3 aprobado.
 - **Criterios de aceptación:** QA valida flujo marítimo con caso real.
 - **Notas funcionales:** Riesgo alto si hay error de DUA.
-- **Notas técnicas:** QA cerrado el 2026-07-15 con tres respuestas públicas reales. Se corrigió la normalización decimal; normal y anticipado coinciden con legacy, y multilinea devuelve dos movimientos cuyos totales coinciden. M3 aprobado.
+- **Notas técnicas:** QA actualizado con `PTY0036804`. Bultos permanece entero; peso admite fracciones y normaliza separadores TICA para aéreo, marítimo y multilinea.
 
 ---
 
@@ -325,27 +325,27 @@
 ### TICA-040 - Campos RAGA Orders
 - **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
-- **Descripción:** Modificar modelo de embarques.
-- **Entregable esperado:** Migraciones y modelos.
-- **Criterios de aceptación:** Agrega DMS, cédula jurídica y múltiples conocimientos sin romper datos.
+- **Descripción:** Parear la respuesta TICA con campos existentes del documento de embarque.
+- **Entregable esperado:** Mapper y modelo sin migraciones nuevas.
+- **Criterios de aceptación:** Actualiza arribo, codigo de almacen, fecha de movimiento, bultos, peso, DUA y fecha DUA; valores nulos no borran datos.
 - **Notas funcionales:** Base para modalidades.
 - **Notas técnicas:** Laravel/RAGA Orders.
 
 ### TICA-041 - UI datos TICA en orden
 - **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Frontend · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
-- **Descripción:** Agregar bloque de datos TICA en detalle.
+- **Descripción:** Agregar consulta manual y refresco de datos TICA en el detalle.
 - **Entregable esperado:** UI funcional.
-- **Criterios de aceptación:** Vista muestra datos y estados; needs_review destacado.
+- **Criterios de aceptación:** **Buscar DUA** refresca los campos pareados sin recargar; observaciones no duplica datos estructurados.
 - **Notas funcionales:** No romper vista con timeout.
 - **Notas técnicas:** Inertia/React según RAGA.
 
 ### TICA-042 - Cliente HTTP servicio TICA
 - **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Full Stack · **Tipo de tarea:** Desarrollo · **Estimación:** 4 h · **PR/QA:** Sí
-- **Descripción:** Consumir POST /v1/consultas desde RAGA.
+- **Descripción:** Consumir manual y sincronicamente `POST /v1/consultas` desde RAGA.
 - **Entregable esperado:** Cliente integrado.
-- **Criterios de aceptación:** Maneja los 7 estados y refresh sin recarga manual.
+- **Criterios de aceptación:** Maneja estados y timeouts sin borrar datos; no requiere Job, worker, Command ni scheduler.
 - **Notas funcionales:** Depende del contrato F1.
 - **Notas técnicas:** Timeouts controlados.
 
@@ -354,7 +354,7 @@
 ## Sprint 5 - QA integral y cierre
 
 ### TICA-050 - Matriz QA de estados
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** In Progress · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Demo · **Tipo de tarea:** Mejoras · **Estimación:** 6 h · **PR/QA:** Sí
 - **Descripción:** Documentar y ejecutar matriz QA.
 - **Entregable esperado:** Matriz QA aprobada.
@@ -363,7 +363,7 @@
 - **Notas técnicas:** ok/pending/stale/unavailable/needs_review/not_found/not_implemented.
 
 ### TICA-051 - Validar reglas con casos reales
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** In Progress · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Demo · **Tipo de tarea:** Mejoras · **Estimación:** 6 h · **PR/QA:** Sí
 - **Descripción:** Validar selección y datos con cliente.
 - **Entregable esperado:** Evidencia QA.
@@ -372,12 +372,12 @@
 - **Notas técnicas:** Comparar contra operación manual.
 
 ### TICA-052 - Tests degradación y CAPTCHA
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Mejoras · **Estimación:** 3 h · **PR/QA:** Sí
 - **Descripción:** Crear pruebas de degradación con fixtures.
 - **Entregable esperado:** tests/test_degradacion.py.
 - **Criterios de aceptación:** stale/unavailable/CAPTCHA simulados en verde.
-- **Notas funcionales:** No resolver CAPTCHA.
+- **Notas funcionales:** Aéreo/marítimo no resuelve CAPTCHA inesperado; terrestre cubre resolución humana, rechazo, expiración y cancelación.
 - **Notas técnicas:** Simular portal caído.
 
 ### TICA-053 - Reporte cobertura QA
@@ -391,49 +391,49 @@
 
 ---
 
-## Sprint 6 - Terrestre condicional
+## Sprint 6 - Modalidad terrestre
 
 ### TICA-060 - Recibir grabación terrestre
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Baja
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Baja
 - **Tipo:** Documentación · **Tipo de tarea:** Mejoras · **Estimación:** 0 h · **PR/QA:** Sí
 - **Descripción:** Gestionar insumo con Dokka/agencia.
 - **Entregable esperado:** Grabación terrestre.
-- **Criterios de aceptación:** Grabación recibida y revisada.
-- **Notas funcionales:** Sin esto no iniciar F6.
-- **Notas técnicas:** Confirmar ejemplo real.
+- **Criterios de aceptación:** Recorrido por DUA, CAPTCHA, Manifiesto/Stock, movimientos y Detenciones confirmado.
+- **Notas funcionales:** Casos de referencia `002-2026-055881` y `005-2026-470211`.
+- **Notas técnicas:** El insumo confirmó que el identificador es el Número DUA.
 
-### TICA-061 - Confirmar código DMS
-- **Estado:** Pending · **Prioridad:** Alta · **Complejidad:** Baja
+### TICA-061 - Confirmar y normalizar Número DUA
+- **Estado:** Done · **Prioridad:** Alta · **Complejidad:** Baja
 - **Tipo:** Documentación · **Tipo de tarea:** Mejoras · **Estimación:** 0 h · **PR/QA:** Sí
-- **Descripción:** Confirmar código de búsqueda terrestre.
+- **Descripción:** Confirmar formato y normalización de la búsqueda terrestre.
 - **Entregable esperado:** Confirmación funcional.
-- **Criterios de aceptación:** Nombre, formato y origen del identificador confirmados.
-- **Notas funcionales:** No usar carta de porte como supuesto.
-- **Notas técnicas:** Actualizar especificación.
+- **Criterios de aceptación:** Acepta guiones o espacios, elimina comillas y normaliza tres grupos numéricos.
+- **Notas funcionales:** Entrada definitiva: Número DUA.
+- **Notas técnicas:** Se separan aduana, año y correlativo antes de navegar TICA.
 
 ### TICA-062 - Fixtures terrestres
-- **Estado:** Pending · **Prioridad:** Media · **Complejidad:** Media
+- **Estado:** Done · **Prioridad:** Media · **Complejidad:** Media
 - **Tipo:** Backend · **Tipo de tarea:** Mejoras · **Estimación:** 3 h · **PR/QA:** Sí
-- **Descripción:** Grabar HTML terrestre después de recibir insumos.
-- **Entregable esperado:** tests/fixtures/terrestre.
-- **Criterios de aceptación:** Fixtures cubren flujo confirmado.
-- **Notas funcionales:** Condicional.
+- **Descripción:** Cubrir el flujo terrestre con fixtures sanitizados y pruebas automatizadas.
+- **Entregable esperado:** `tests/test_terrestre.py` y cobertura API relacionada.
+- **Criterios de aceptación:** Formato, CAPTCHA, sesiones, expiración, movimientos y limpieza cubiertos.
+- **Notas funcionales:** La evidencia manual productiva permanece pendiente.
 - **Notas técnicas:** No tocar TICA en tests.
 
 ### TICA-063 - Estrategia terrestre
-- **Estado:** Pending · **Prioridad:** Media · **Complejidad:** Alta
+- **Estado:** Done · **Prioridad:** Media · **Complejidad:** Alta
 - **Tipo:** Backend · **Tipo de tarea:** Desarrollo · **Estimación:** 12 h · **PR/QA:** Sí
 - **Descripción:** Implementar terrestre.py.
 - **Entregable esperado:** Estrategia terrestre.
-- **Criterios de aceptación:** Implementación sigue patrón de estrategias y contrato de estados.
-- **Notas funcionales:** Solo tras confirmación DMS.
-- **Notas técnicas:** Actualizar docs.
+- **Criterios de aceptación:** Implementa sesión aislada, CAPTCHA manual, polling y extracción normalizada.
+- **Notas funcionales:** Comparte parsers y contrato con aéreo/marítimo.
+- **Notas técnicas:** Cierra Playwright en éxito, error, cancelación y expiración.
 
 ### TICA-064 - Tests y validación terrestre
-- **Estado:** Pending · **Prioridad:** Media · **Complejidad:** Media
+- **Estado:** In Progress · **Prioridad:** Media · **Complejidad:** Media
 - **Tipo:** Demo · **Tipo de tarea:** Mejoras · **Estimación:** 5 h · **PR/QA:** Sí
 - **Descripción:** Cerrar modalidad terrestre.
 - **Entregable esperado:** M6 aprobado.
-- **Criterios de aceptación:** Tests verdes y validación QA con caso real.
-- **Notas funcionales:** Condicional.
-- **Notas técnicas:** Fixtures + caso real.
+- **Criterios de aceptación:** Tests verdes, integración SD Editar operativa y validación QA productiva completada.
+- **Notas funcionales:** Implementación y pruebas automatizadas completadas; aprobación productiva pendiente.
+- **Notas técnicas:** Modal, polling, persistencia atómica y bloque TICA implementados.

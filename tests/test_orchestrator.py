@@ -140,7 +140,6 @@ def complete_raw() -> ResultadoEstrategia:
             "peso_bruto": "3.000",
             "dua_nacionalizacion": "005-2026-392058",
             "fecha_dua": "2026/06/08",
-            "estado_final": "Autorizacion de Levante",
         },
     }
 
@@ -151,17 +150,34 @@ def crear_cache() -> InMemoryResultCache:
 
 @pytest.mark.parametrize(
     ("texto", "esperado"),
-    [("3.000", 3), ("614.000", 614), ("7450.000", 7450), ("42", 42)],
+    [
+        ("3.000", 3000),
+        ("5.000", 5000),
+        ("614.000", 614000),
+        ("7,450", 7450),
+        ("42", 42),
+        ("1.234.567", 1234567),
+    ],
 )
-def test_cantidades_tica_interpretan_tres_decimales(
+def test_cantidades_tica_interpretan_separadores_de_miles(
     texto: str,
     esperado: int,
 ) -> None:
     assert ConsultaOrchestrator._parse_integer(texto) == esperado
 
 
+@pytest.mark.parametrize(
+    ("texto", "esperado"),
+    [("163.000", 163000.0), ("163.000,25", 163000.25), ("544.70", 544.7)],
+)
+def test_pesos_tica_preservan_miles_y_decimales(
+    texto: str, esperado: float
+) -> None:
+    assert ConsultaOrchestrator._parse_decimal(texto) == esperado
+
+
 @pytest.mark.asyncio
-async def test_cada_consulta_emite_evento_operativo_sin_manifiesto() -> None:
+async def test_cada_consulta_emite_evento_operativo_con_criterio_de_busqueda() -> None:
     logger = FakeLogger()
     orchestrator = ConsultaOrchestrator(
         browser=FakeBrowser(),
@@ -178,7 +194,8 @@ async def test_cada_consulta_emite_evento_operativo_sin_manifiesto() -> None:
     assert values["modalidad"] == "aereo"
     assert values["estado"] == "ok"
     assert isinstance(values["duracion_ms"], float)
-    assert "872219087246" not in str(logger.events)
+    assert values["tipo_busqueda"] == "guia_aerea"
+    assert values["numero_busqueda"] == "872219087246"
 
 
 @pytest.mark.asyncio
@@ -213,9 +230,8 @@ async def test_consulta_ok_mapea_datos_y_guarda_cache() -> None:
     assert result.estado is EstadoConsulta.OK
     assert result.modalidad is Modalidad.AEREO
     assert result.momento3.dua_nacionalizacion == "005-2026-392058"
-    assert result.momento3.estado_final == "Autorizacion de Levante"
-    assert result.momento2.bultos == 1
-    assert result.momento2.peso_bruto == 3
+    assert result.momento2.bultos == 1000
+    assert result.momento2.peso_bruto == 3000
     assert await cache.obtener(Modalidad.AEREO, "872219087246") is not None
     assert search.arguments["fecha_inicio"] is None
     assert search.arguments["fecha_fin"] == "13/07/2026"
@@ -405,4 +421,4 @@ async def test_maritimo_multilinea_publica_lista_sin_elegir_escalar() -> None:
         "55808682",
         "55808690",
     ]
-    assert [item.bultos for item in result.momento2.movimientos] == [422, 192]
+    assert [item.bultos for item in result.momento2.movimientos] == [422000, 192000]

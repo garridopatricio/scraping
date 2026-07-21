@@ -1,5 +1,6 @@
 # Entorno y secretos
 .venv/
+.venv312/
 .env
 
 # Python
@@ -15,6 +16,7 @@ __pycache__/
 htmlcov/
 dist/
 build/
+uvicorn-*.log
 
 # Salidas y evidencias locales de la PoC
 tools/poc_validacion.py

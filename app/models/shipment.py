@@ -17,6 +17,14 @@ from app.models.enums import EstadoConsulta, Modalidad
 MAX_MANIFIESTOS_POR_LOTE = 100
 
 
+def quitar_comillas_envolventes(value: object) -> object:
+    """Evita enviar a TICA comillas copiadas como parte del conocimiento."""
+
+    if not isinstance(value, str):
+        return value
+    return value.strip().strip("\"'").strip()
+
+
 class ModeloTICA(BaseModel):
     """Configuracion comun para modelos estrictos del servicio."""
 
@@ -36,6 +44,11 @@ class ConsultaInput(ModeloTICA):
     manifiesto: str = Field(min_length=1, max_length=200)
     fecha_inicio: date | None = None
     fecha_fin: date
+
+    @field_validator("manifiesto", mode="before")
+    @classmethod
+    def normalizar_manifiesto(cls, value: object) -> object:
+        return quitar_comillas_envolventes(value)
 
     @model_validator(mode="after")
     def validar_fechas(self) -> Self:
@@ -58,6 +71,13 @@ class ConsultaLoteInput(ModeloTICA):
     )
     fecha_inicio: date | None = None
     fecha_fin: date
+
+    @field_validator("manifiestos", mode="before")
+    @classmethod
+    def normalizar_manifiestos(cls, values: object) -> object:
+        if not isinstance(values, list):
+            return values
+        return [quitar_comillas_envolventes(value) for value in values]
 
     @field_validator("manifiestos")
     @classmethod
@@ -101,7 +121,7 @@ class DatosMovimiento(ModeloTICA):
     fecha_ingreso_regimen: date | None = None
     fecha_movimiento_inventario: datetime | None = None
     bultos: int | None = Field(default=None, ge=0)
-    peso_bruto: int | None = Field(default=None, ge=0)
+    peso_bruto: float | None = Field(default=None, ge=0)
 
 
 class DatosMomento2(DatosMovimiento):
@@ -115,7 +135,6 @@ class DatosMomento3(ModeloTICA):
 
     dua_nacionalizacion: str | None = Field(default=None, min_length=1, max_length=100)
     fecha_dua: date | None = None
-    estado_final: str | None = Field(default=None, min_length=1, max_length=300)
 
 
 class ContextoMaritimo(ModeloTICA):

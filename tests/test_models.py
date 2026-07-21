@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from app.models import (
     ConsultaInput,
+    ConsultaLoteInput,
     ContextoMaritimo,
     DatosMomento1,
     DatosMomento2,
@@ -31,8 +32,12 @@ def test_estados_normalizados_son_los_siete_del_proyecto() -> None:
     }
 
 
-def test_modalidades_actuales_son_aereo_y_maritimo() -> None:
-    assert {modalidad.value for modalidad in Modalidad} == {"aereo", "maritimo"}
+def test_modalidades_actuales_incluyen_terrestre() -> None:
+    assert {modalidad.value for modalidad in Modalidad} == {
+        "aereo",
+        "maritimo",
+        "terrestre",
+    }
 
 
 def test_consulta_recibe_manifiesto_y_fecha_sin_pedir_modalidad() -> None:
@@ -41,6 +46,18 @@ def test_consulta_recibe_manifiesto_y_fecha_sin_pedir_modalidad() -> None:
     assert consulta.manifiesto == "872219087246"
     assert consulta.fecha_inicio is None
     assert "modalidad" not in consulta.model_dump()
+
+
+def test_consultas_eliminan_comillas_envolventes_de_los_manifiestos() -> None:
+    fecha = date(2026, 7, 13)
+
+    assert ConsultaInput(manifiesto=' "684115001954" ', fecha_fin=fecha).manifiesto == (
+        "684115001954"
+    )
+    assert ConsultaLoteInput(
+        manifiestos=["'684115001954'", '"HBL-2"'],
+        fecha_fin=fecha,
+    ).manifiestos == ["684115001954", "HBL-2"]
 
 
 @pytest.mark.parametrize(
@@ -107,7 +124,6 @@ def test_resultado_serializa_los_diez_campos_confirmados() -> None:
         momento3=DatosMomento3(
             dua_nacionalizacion="005-2026-414387",
             fecha_dua=date(2026, 6, 16),
-            estado_final="Autorizacion de Levante",
         ),
     )
 
@@ -125,7 +141,6 @@ def test_resultado_serializa_los_diez_campos_confirmados() -> None:
         "peso_bruto",
         "dua_nacionalizacion",
         "fecha_dua",
-        "estado_final",
         "movimientos",
     }
     assert "partidas_arancelarias" not in data

@@ -32,6 +32,10 @@ class Settings(BaseSettings):
 
     cache_ttl_seconds: int = Field(default=3_600, gt=0)
 
+    terrestrial_session_ttl_seconds: int = Field(default=180, ge=30, le=900)
+    terrestrial_processing_timeout_seconds: int = Field(default=180, ge=30, le=900)
+    terrestrial_max_sessions: int = Field(default=3, ge=1, le=10)
+
     # Cedula juridica historica confirmada para filtrar consolidados maritimos.
     # Puede cambiarse con TICA_CEDULA_JURIDICA_MARITIMA sin modificar parsers.
     cedula_juridica_maritima: str = Field(default="095144", min_length=1, max_length=20)

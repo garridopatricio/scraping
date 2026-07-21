@@ -150,30 +150,30 @@ Reglas productivas confirmadas:
 
 # **4\. Proceso de Consulta – Carga Terrestre**
 
-La carga terrestre presenta diferencias significativas respecto a las modalidades aérea y marítima, principalmente en el identificador de búsqueda utilizado.
+La carga terrestre comienza por Número DUA y requiere que el usuario resuelva manualmente el CAPTCHA mostrado por TICA.
 
 ## **4.1 Diferencia fundamental**
 
-| *⚠️  Para carga terrestre NO se puede buscar por número de Carta de Porte en TICA. La búsqueda se realiza por un código especial asignado durante el proceso de exportación desde el país de origen (código DMS). Este código debe ser coordinado con la agencia aduanal.* |
+| *La entrada confirmada es el Número DUA. Dokka acepta guiones o espacios, elimina comillas y separa aduana, año y correlativo antes de consultar TICA.* |
 | :---- |
 
 ## **4.2 Datos de entrada requeridos**
 
-* Código DMS (asignado durante la exportación en el país de origen)
+* Número DUA en tres grupos numéricos, por ejemplo `005-2026-470211`.
 
-* Este código es diferente al número de Carta de Porte
+* CAPTCHA introducido manualmente por el usuario en el modal de SD Editar.
 
-* Debe solicitarse a la agencia aduanal o al proveedor del país de origen
+* Después del detalle inicial se navega a Manifiesto/Stock, movimiento y Detenciones.
 
 # **5\. Comparación por Modalidad de Carga**
 
 | Aspecto | Aérea | Marítima | Terrestre |
 | ----- | ----- | ----- | ----- |
-| Identificador de búsqueda | Guía aérea | Número de BL/MBL | Código DMS (no Carta de Porte) |
-| Sección inicial en TICA | Manifiestos → Conocimientos de embarque | Manifiestos → Conocimientos de embarque | Por confirmar con agencia aduanal |
-| ¿Aparece Mov. Inventario directamente? | Sí – en Líneas y Afectaciones | No – aparece DUA de movilización primero | Por confirmar |
-| Pasos intermedios adicionales | Ninguno | Ir a Depósitos → Mov. por Nro. Inventario, filtrar por cédula jurídica | Por confirmar |
-| Complejidad relativa | Baja | Media-Alta | Por confirmar |
+| Identificador de búsqueda | Guía aérea | Número de BL/MBL | Número DUA |
+| Sección inicial en TICA | Manifiestos → Conocimientos de embarque | Manifiestos → Conocimientos de embarque | Consulta DUA → CAPTCHA |
+| ¿Aparece Mov. Inventario directamente? | Sí – en Líneas y Afectaciones | No – aparece DUA de movilización primero | Se obtiene desde Manifiesto/Stock |
+| Pasos intermedios adicionales | Ninguno | Ir a Depósitos → Mov. por Nro. Inventario | Resolver CAPTCHA → Manifiesto/Stock → Movimiento → Detenciones |
+| Complejidad relativa | Baja | Media-Alta | Alta por sesión humana y navegación posterior |
 
 # **6\. Consideraciones Técnicas para la Automatización**
 
@@ -213,7 +213,7 @@ A partir de este análisis, se identificaron los siguientes campos que RAGA Orde
 | Campo | Aplica a | Fuente |
 | ----- | ----- | ----- |
 | Número de conocimiento de embarque (múltiples por shipment) | Aéreo y Marítimo | Proveedor / Freight Forwarder |
-| Código DMS | Terrestre | Agencia aduanal / País de origen |
+| Número DUA | Terrestre | Shipping Document / TICA |
 | Fecha de arribo (TICA) | Todas | Extraído de TICA |
 | Número de movimiento de inventario | Todas | Extraído de TICA |
 | Almacén fiscal (depósito) | Todas | Extraído de TICA |
@@ -229,8 +229,8 @@ A partir de este análisis, se identificaron los siguientes campos que RAGA Orde
 
 | Pendiente | Responsable | Estado |
 | ----- | ----- | ----- |
-| Grabación del proceso de búsqueda de carga terrestre en TICA con ejemplos reales | Nataly Castillo – Grupo Dökka | Comprometido post sesión |
-| Confirmación del nombre del código de búsqueda terrestre (código DMS u otro) | Nataly Castillo \+ agencia aduanal | Pendiente |
+| Recorrido terrestre y ejemplos reales | Grupo Dökka | Confirmado e implementado |
+| Identificador de búsqueda terrestre | Grupo Dökka | Confirmado: Número DUA |
 | Propuesta técnica final de integración por web scraping | Juan Castillo – Raga-x | Comprometido para la semana siguiente a la sesión |
 | Asignación de recurso IT cliente para validaciones (sustituto de Jerson Morales) | Nataly Castillo \+ Jefatura Grupo Dökka | En gestión interna |
 

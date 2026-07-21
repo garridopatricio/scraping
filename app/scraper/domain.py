@@ -3,10 +3,6 @@
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from playwright.async_api import Page
 
 
 @dataclass(slots=True)
@@ -25,15 +21,6 @@ def limpiar_espacios(value: str) -> str:
     """Normaliza espacios y caracteres invisibles comunes del portal."""
 
     return re.sub(r"\s+", " ", value.replace("\xa0", " ")).strip()
-
-
-async def extraer_estado_final(page: "Page") -> str:
-    """Lee la descripcion visible del estado aduanero en el detalle del DUA."""
-
-    locator = page.locator("#span_vDUASTSDSC")
-    if await locator.count() == 0:
-        return ""
-    return limpiar_espacios(await locator.first.inner_text(timeout=5_000))
 
 
 def normalizar_texto_filtro(value: str) -> str:

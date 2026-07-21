@@ -1,5 +1,10 @@
 # Sprint 3 - Modalidad maritima - Seguimiento de avances
 
+> Actualización posterior: el flujo marítimo comparte normalización decimal,
+> deduplicación y reglas de movimientos múltiples con las otras modalidades. En
+> multilinea se publican todos los movimientos en Observaciones y no se selecciona
+> arbitrariamente un depósito o fecha principal.
+
 Documento vivo para migrar el flujo maritimo validado en la PoC hacia codigo productivo.
 
 ## Estado general
@@ -101,5 +106,5 @@ en servicio; no era una diferencia de parser, sino una ventana de consulta incor
 | 2026-07-15 | TICA-031-034 | Flujo productivo, cédula fija configurable, anticipado y multilinea. | Completadas |
 | 2026-07-15 | Diagnostico | Corregido selector global que omitia la segunda linea. | Resuelto |
 | 2026-07-15 | TICA-035 | Parsers, fixtures, contrato y regresion automatizada. | Completada |
-| 2026-07-15 | QA cantidades | Corregida la lectura de tres decimales y repetida la suite completa. | Resuelto |
+| 2026-07-16 | QA cantidades `PTY0036804` | Corregida la lectura: punto y coma son separadores de miles en bultos y peso (`5.000` → `5000`), no decimales. | Resuelto; reemplaza la regla del 2026-07-15 |
 | 2026-07-15 | TICA-036 / M3 | Tres casos reales validados mediante respuesta publica; Sprint 3 cerrado. | Completada |

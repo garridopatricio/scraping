@@ -1,11 +1,16 @@
 """Pruebas de humo y contrato HTTP de FastAPI."""
 
-from datetime import date
+from datetime import UTC, date, datetime
+from types import SimpleNamespace
 
 import pytest
 from httpx import ASGITransport, AsyncClient, Response
 
-from app.api.routes import get_lote_orchestrator, get_portal_health_checker
+from app.api.routes import (
+    get_lote_orchestrator,
+    get_portal_health_checker,
+    get_terrestre_manager,
+)
 from app.config import Settings
 from app.main import create_app
 from app.models import (
@@ -42,6 +47,56 @@ class FakePortalChecker:
         return self.available
 
 
+class FakeTerrestreManager:
+    def __init__(self) -> None:
+        self.image = b"captcha-original"
+        self.cancelled: list[str] = []
+
+    def session(self, image: bytes | None = None) -> SimpleNamespace:
+        return SimpleNamespace(
+            session_id="session-1",
+            dua=SimpleNamespace(normalizado="005-2026-470211"),
+            captcha=image or self.image,
+            expires_at=datetime(2026, 7, 20, 12, 3, tzinfo=UTC),
+            estado=SimpleNamespace(value="completado"),
+            resultado={
+                "estado": "ok",
+                "dua": "005-2026-470211",
+                "fecha_registro": "2026-07-08",
+                "modalidad": "terrestre",
+                "motivo": None,
+                "momento1": {"fecha_arribo": None, "transportista": None},
+                "momento2": {"bultos": "10", "peso_bruto": "100", "movimientos": []},
+                "momento3": {"dua_nacionalizacion": "005-2026-470211", "fecha_dua": "2026-07-08"},
+            },
+            error=None,
+        )
+
+    async def iniciar(self, dua: str) -> SimpleNamespace:
+        assert dua == "005-2026-470211"
+        return self.session()
+
+    async def resolver(
+        self, session_id: str, captcha: str
+    ) -> tuple[object, SimpleNamespace]:
+        assert session_id == "session-1"
+        if captcha == "incorrecto":
+            return "captcha_incorrecto", self.session()
+        return "consultando", self.session()
+
+    async def estado(self, session_id: str) -> SimpleNamespace:
+        return self.session()
+
+    async def regenerar(self, session_id: str) -> SimpleNamespace:
+        return self.session(b"captcha-nuevo")
+
+    async def completar(self, session_id: str) -> None:
+        self.cancelled.append(session_id)
+
+    async def cancelar(self, session_id: str) -> None:
+        self.cancelled.append(session_id)
+
+
 async def solicitar(
     method: str,
     path: str,
@@ -49,6 +104,7 @@ async def solicitar(
     orchestrator: FakeLoteOrchestrator | None = None,
     portal_available: bool = True,
     json_body: object | None = None,
+    terrestrial: FakeTerrestreManager | None = None,
 ) -> Response:
     application = create_app(Settings(app_env="test"))
     application.dependency_overrides[get_lote_orchestrator] = lambda: (
@@ -56,6 +112,9 @@ async def solicitar(
     )
     application.dependency_overrides[get_portal_health_checker] = lambda: (
         FakePortalChecker(portal_available)
+    )
+    application.dependency_overrides[get_terrestre_manager] = lambda: (
+        terrestrial or FakeTerrestreManager()
     )
     async with AsyncClient(
         transport=ASGITransport(app=application),
@@ -86,6 +145,70 @@ async def test_health_portal_responde_503_cuando_tica_no_esta_disponible() -> No
 
     assert response.status_code == 503
     assert response.json() == {"status": "unavailable", "component": "portal"}
+
+
+@pytest.mark.asyncio
+async def test_inicia_consulta_terrestre_y_publica_captcha_en_memoria() -> None:
+    response = await solicitar(
+        "POST",
+        "/v1/consultas-terrestres",
+        json_body={"dua": "005-2026-470211"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["estado"] == "esperando_captcha"
+    assert response.json()["captcha_image"].startswith("data:image/png;base64,")
+
+
+@pytest.mark.asyncio
+async def test_captcha_incorrecto_conserva_exactamente_la_imagen() -> None:
+    manager = FakeTerrestreManager()
+    response = await solicitar(
+        "POST",
+        "/v1/consultas-terrestres/session-1/resolver",
+        json_body={"captcha": "incorrecto"},
+        terrestrial=manager,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["estado"] == "captcha_incorrecto"
+    assert response.json()["captcha_image"] == "data:image/png;base64,Y2FwdGNoYS1vcmlnaW5hbA=="
+
+
+@pytest.mark.asyncio
+async def test_regenerar_es_la_unica_operacion_que_cambia_la_imagen() -> None:
+    response = await solicitar(
+        "POST",
+        "/v1/consultas-terrestres/session-1/regenerar",
+    )
+
+    assert response.status_code == 200
+    assert response.json()["captcha_image"] == "data:image/png;base64,Y2FwdGNoYS1udWV2bw=="
+
+
+@pytest.mark.asyncio
+async def test_resolver_inicia_procesamiento_y_estado_publica_resultado() -> None:
+    manager = FakeTerrestreManager()
+    response = await solicitar(
+        "POST",
+        "/v1/consultas-terrestres/session-1/resolver",
+        json_body={"captcha": "correcto"},
+        terrestrial=manager,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "estado": "consultando",
+        "session_id": "session-1",
+        "dua": "005-2026-470211",
+    }
+    status_response = await solicitar(
+        "GET", "/v1/consultas-terrestres/session-1", terrestrial=manager
+    )
+    assert status_response.status_code == 200
+    assert status_response.json()["estado"] == "completado"
+    assert status_response.json()["momento3"]["fecha_dua"] == "2026-07-08"
+    assert manager.cancelled == []
 
 
 @pytest.mark.asyncio
@@ -211,7 +334,6 @@ def test_openapi_contiene_campos_confirmados_y_movimientos_maritimos() -> None:
         "peso_bruto",
         "dua_nacionalizacion",
         "fecha_dua",
-        "estado_final",
         "movimientos",
     }
     assert "partidas_arancelarias" not in fields
@@ -219,7 +341,7 @@ def test_openapi_contiene_campos_confirmados_y_movimientos_maritimos() -> None:
     assert schemas["DatosMomento2"]["properties"]["bultos"]["anyOf"][0]["type"] == "integer"
     assert (
         schemas["DatosMomento2"]["properties"]["peso_bruto"]["anyOf"][0]["type"]
-        == "integer"
+        == "number"
     )
 
 

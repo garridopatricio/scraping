@@ -14,7 +14,7 @@ from app.config import Settings, get_settings
 from app.models import ConsultaInput, Modalidad
 from app.scraper.aereo import extraer_detenciones
 from app.scraper.base import EstrategiaModalidad, ResultadoEstrategia
-from app.scraper.domain import BusquedaConocimiento, extraer_estado_final, limpiar_espacios
+from app.scraper.domain import BusquedaConocimiento, limpiar_espacios
 from app.scraper.portal import CapturadorHTML
 
 TICA_URL = "https://portaltica.hacienda.go.cr/TicaExterno/"
@@ -254,22 +254,16 @@ async def dua_desde_pagina(page: Page, capturador: CapturadorHTML | None) -> dic
         dua = "-".join(fila[:3])
         locator = page.get_by_text(fila[2], exact=True).first
         fecha = ""
-        estado_final = ""
         if await locator.count():
             await locator.click(timeout=10_000)
             await page.wait_for_timeout(3_000)
             if capturador:
                 await capturador("09_detalle_dua_nacionalizacion", page)
             texto = await page.locator("body").inner_text(timeout=5_000)
-            estado_final = await extraer_estado_final(page)
             match = re.search(r"Fecha (?:de )?Registro:\s*([0-9/: ]+)", texto, re.IGNORECASE)
             if match:
                 fecha = limpiar_espacios(match.group(1)).split(" ")[0]
-        return {
-            "dua_nacionalizacion": dua,
-            "fecha_dua": fecha,
-            "estado_final": estado_final,
-        }
+        return {"dua_nacionalizacion": dua, "fecha_dua": fecha}
     return {}
 
 
@@ -371,7 +365,6 @@ class EstrategiaMaritima(EstrategiaModalidad):
                     {
                         "dua_nacionalizacion": dua_mov.dua,
                         "fecha_dua": dua_mov.fecha.split(" ")[0],
-                        "estado_final": await extraer_estado_final(page),
                         **extraer_totales_dua_anticipado(detalle_dua_texto),
                     }
                 )

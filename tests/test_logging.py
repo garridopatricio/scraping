@@ -29,7 +29,7 @@ class MemoryLogger:
         return None
 
 
-def test_registra_estado_modalidad_duracion_y_correlacion_sin_manifiesto() -> None:
+def test_registra_estado_modalidad_duracion_correlacion_y_bl() -> None:
     logger = MemoryLogger()
     result = ResultadoTICA(
         estado=EstadoConsulta.OK,
@@ -42,12 +42,15 @@ def test_registra_estado_modalidad_duracion_y_correlacion_sin_manifiesto() -> No
         resultado=result,
         duracion_ms=12.345,
         correlacion_id="corr-123",
+        numero_busqueda="BL-1416-3924",
     )
 
     event, values = logger.events[0]
     assert event == "consulta_tica_finalizada"
     assert values == {
         "correlacion_id": "corr-123",
+        "tipo_busqueda": "bl",
+        "numero_busqueda": "BL-1416-3924",
         "modalidad": "maritimo",
         "estado": "ok",
         "duracion_ms": 12.35,
@@ -69,6 +72,7 @@ def test_configuracion_emite_una_linea_json(capsys: CaptureFixture[str]) -> None
         ),
         duracion_ms=7.0,
         correlacion_id="corr-json",
+        numero_busqueda="123-456789",
     )
 
     output = json.loads(capsys.readouterr().out)
@@ -77,4 +81,6 @@ def test_configuracion_emite_una_linea_json(capsys: CaptureFixture[str]) -> None
     assert output["modalidad"] == "aereo"
     assert output["duracion_ms"] == 7.0
     assert output["correlacion_id"] == "corr-json"
+    assert output["tipo_busqueda"] == "guia_aerea"
+    assert output["numero_busqueda"] == "123-456789"
     assert "NO-DEBE-APARECER" not in output.values()

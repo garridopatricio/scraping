@@ -124,8 +124,9 @@ del segundo escenario.
 
 - La API recibe `manifiestos` (1-100) + `fecha_fin` y una `fecha_inicio` opcional; cada manifiesto se procesa secuencialmente, detecta su modalidad desde Master y se publica como clave directa del JSON de respuesta.
 - El PoC es la fuente funcional, pero no una dependencia del microservicio.
-- `bultos` y `peso_bruto` son enteros; tras el QA maritimo se confirmo que `3.000` en
-  TICA representa `3`, no `3000`.
+- `bultos` permanece entero; `peso_bruto` admite decimales y utiliza la normalización compartida del formato TICA. La validación
+  con `PTY0036804` confirmo que `5.000` debe representar `5000`. La regla aplica
+  tambien al flujo aereo.
 - El consumidor decide por `estado`; el catalogo podra ampliarse mediante cambios futuros del contrato.
 - Partidas arancelarias y valor/impuestos permanecen fuera del contrato vigente, aunque TICA-024 del archivo de tareas aun los mencione.
 - Los tests no consultan TICA vivo.

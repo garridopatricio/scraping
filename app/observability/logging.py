@@ -52,13 +52,27 @@ def registrar_consulta(
     resultado: ResultadoTICA,
     duracion_ms: float,
     correlacion_id: str,
+    numero_busqueda: str,
 ) -> None:
-    """Registra el resultado operativo sin incluir el manifiesto ni el payload."""
+    """Registra el resultado y el identificador consultado, sin incluir el payload."""
+
+    tipos_por_modalidad = {
+        "aereo": "guia_aerea",
+        "maritimo": "bl",
+        "terrestre": "dua",
+    }
+    modalidad = resultado.modalidad.value if resultado.modalidad else None
 
     logger.info(
         "consulta_tica_finalizada",
         correlacion_id=correlacion_id,
-        modalidad=resultado.modalidad.value if resultado.modalidad else None,
+        tipo_busqueda=(
+            tipos_por_modalidad.get(modalidad, "conocimiento_embarque")
+            if modalidad is not None
+            else "conocimiento_embarque"
+        ),
+        numero_busqueda=numero_busqueda,
+        modalidad=modalidad,
         estado=resultado.estado.value,
         duracion_ms=round(duracion_ms, 2),
     )

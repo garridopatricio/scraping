@@ -272,7 +272,7 @@ Luego:
 | Fecha | Decision | Motivo |
 |---|---|---|
 | 2026-07-09 | `bultos` representa cantidad, no tipo de bulto. | Paso a paso pide cantidad de bultos. |
-| 2026-07-15 | En el contrato productivo, `bultos` y `peso_bruto` son enteros; TICA presenta tres decimales. | Correccion QA M3: `3.000` debe publicarse como `3`. |
+| 2026-07-20 | Dokka recibe `bultos` entero y `peso_bruto` decimal. | El formato TICA distingue miles y fracciones; `163.000` → 163000 y `163.000,25` → 163000.25. |
 | 2026-07-09 | En maritimo, bultos/peso se reportan desde Detenciones. | Deben corresponder al movimiento filtrado por cedula. |
 | 2026-07-09 | DUA de movilizacion se guarda interno y no se reporta como nacionalizacion. | Regla dura del backlog y paso a paso. |
 | 2026-07-09 | `Lugar de Destino` del DUA de movilizacion define el deposito para consultar Depositos. | Paso a paso especifica deposito destino desde DUA de movilizacion. |

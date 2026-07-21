@@ -197,20 +197,6 @@ def test_fixture_real_anticipado_no_incluye_pantalla_deposito() -> None:
     assert not any(nombre.startswith("06_deposito") for nombre in archivos)
 
 
-def test_fixtures_finales_maritimos_contienen_estado_visible() -> None:
-    rutas = [
-        FIXTURE_DIR / "normal_una_linea" / "09_detalle_dua_nacionalizacion.html",
-        FIXTURE_DIR / "consolidado_multilinea" / "09_detalle_dua_nacionalizacion.html",
-        FIXTURE_DIR / "anticipado" / "05_detalle_dua_movilizacion_linea_01.html",
-    ]
-
-    for ruta in rutas:
-        contenido = ruta.read_text(encoding="utf-8")
-        match = re.search(r'id="span_vDUASTSDSC"[^>]*>([^<]*)', contenido)
-        assert match is not None
-        assert " ".join(match.group(1).split()) == "Autorizacion de Levante"
-
-
 def test_fixtures_maritimos_estan_sanitizados() -> None:
     contenido = "\n".join(
         path.read_text(encoding="utf-8") for path in FIXTURE_DIR.rglob("*.html")

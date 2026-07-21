@@ -10,7 +10,7 @@ from playwright.async_api import Page
 
 from app.models import ConsultaInput, Modalidad
 from app.scraper.base import EstrategiaModalidad, ResultadoEstrategia
-from app.scraper.domain import BusquedaConocimiento, extraer_estado_final, limpiar_espacios
+from app.scraper.domain import BusquedaConocimiento, limpiar_espacios
 from app.scraper.portal import CapturadorHTML
 
 TICA_URL = "https://portaltica.hacienda.go.cr/TicaExterno/"
@@ -122,7 +122,6 @@ async def extraer_dua_desde_pagina(
     if capturador:
         await capturador("08_detalle_dua", page)
     texto = await page.locator("body").inner_text(timeout=5_000)
-    datos["estado_final"] = await extraer_estado_final(page)
     match = re.search(r"Fecha (?:de )?Registro:\s*([0-9/: ]+)", texto, flags=re.IGNORECASE)
     if match:
         datos["fecha_dua"] = limpiar_espacios(match.group(1)).split(" ")[0]

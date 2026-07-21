@@ -8,6 +8,7 @@ class Modalidad(StrEnum):
 
     AEREO = "aereo"
     MARITIMO = "maritimo"
+    TERRESTRE = "terrestre"
 
 
 class EstadoConsulta(StrEnum):

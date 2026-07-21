@@ -64,12 +64,12 @@ El Sprint 1 comenzo sin estructura productiva. TICA-010 creo `pyproject.toml`, `
 - Estados del proyecto: `ok`, `pending`, `stale`, `unavailable`, `needs_review`, `not_found` y `not_implemented`.
 - La entrada publica no pide modalidad: recibe `manifiestos`, `fecha_fin` y una `fecha_inicio` opcional. El modelo unitario `ConsultaInput` con un solo `manifiesto` se conserva exclusivamente dentro del orquestador.
 - La modalidad se detecta despues de buscar el conocimiento y leer `Desc Descarga` en Master: Caldera, Moin o Puerto Limon indican maritimo; otras descargas indican aereo.
-- Terrestre queda fuera del alcance actual y no se intenta detectar ni despachar.
+- En esta etapa terrestre todavía no se despachaba; Sprint 6 incorporó posteriormente su flujo explícito por Número DUA.
 - La cedula maritima usada para filtrar Depositos permanece como configuracion interna del flujo, no como selector de modalidad del usuario.
 - El DUA de movilizacion maritimo es interno y no puede devolverse como `dua_nacionalizacion`, salvo la excepcion confirmada para pedidos anticipados.
 - Si una seleccion es ambigua, el servicio debe responder `needs_review` en vez de adivinar.
 - Cuando se envia `fecha_inicio`, la ventana maxima de consulta es de 15 dias; sin ella, el campo queda vacio en TICA.
-- Un CAPTCHA no se resuelve: debe producir `unavailable` con motivo `captcha_required`.
+- En aéreo/marítimo un CAPTCHA inesperado produce `unavailable/captcha_required`. Sprint 6 agregó resolución humana exclusivamente para terrestre.
 
 ## Resumen de los puntos del Sprint 1
 
@@ -159,7 +159,7 @@ Checklist:
 - [x] Serializar las consultas para evitar paralelismo agresivo contra TICA.
 - [x] Implementar reintentos limitados con backoff.
 - [x] Convertir fallos agotados en señal controlada de indisponibilidad.
-- [x] Detectar CAPTCHA sin intentar resolverlo.
+- [x] Detectar CAPTCHA inesperado en aéreo/marítimo sin intentar eludirlo; terrestre se resuelve manualmente desde Sprint 6.
 - [x] Probar con navegador o pagina simulada.
 
 ### TICA-013 - Interfaz estrategia modalidad
@@ -332,12 +332,13 @@ Agregar una fila por cada cambio relevante.
 | 2026-07-13 | TICA-014 | Se integran entrada, navegador, busqueda, modalidad detectada, estrategias, mapeo de datos y cache. | 43 tests en verde; estados y ventana de 15 dias aprobados | Completada |
 | 2026-07-13 | Estructura GitHub | Se crea un entorno virtual local dentro de `scrapping-tica/` sin eliminar el anterior. | 43 tests, Ruff y mypy ejecutados con el nuevo `.venv` | Completada |
 | 2026-07-13 | Correccion de arquitectura | Se extraen busqueda, clasificacion y CAPTCHA a codigo productivo; la PoC sale de `app/` y no sera dependencia del servicio. | 48 tests; cero imports de `poc_validacion` en `app/` y `tests/`; Ruff y mypy en verde | Completada |
-| 2026-07-13 | TICA-016 | Se configura structlog JSON y se registra una linea por consulta con correlacion, modalidad, estado y duracion, sin manifiesto. | 51 tests; salida JSON e integracion con orquestador verificadas; Ruff y mypy en verde | Completada |
+| 2026-07-13 | TICA-016 | Se configura structlog JSON con correlación, modalidad, estado y duración. Posteriormente se añadieron tipo y número de búsqueda. | Salida JSON e integración verificadas; Ruff y mypy en verde | Completada |
 | 2026-07-13 | TICA-017 | Se crea FastAPI con consulta, health de servicio y health real de conectividad al portal. | 63 tests; entrada invalida 422, health 200/503 y siete estados serializados; Ruff y mypy en verde | Completada |
 | 2026-07-13 | TICA-018 | Se revisa OpenAPI contra Sprint 0, se documentan payloads, estados y errores, y se agrega 503 al contrato de portal health. | `docs/SPRINT-1-CONTRATO-API.md`; 67 tests; Ruff y mypy en verde | En revision |
 | 2026-07-13 | TICA-018 / M1 | Se aprueba el contrato: cantidades enteras y decisiones por `estado`; se cierra Sprint 1. | 71 tests; contrato y seguimiento actualizados | Completada |
 | 2026-07-13 | Correccion posterior a M1 | Se controla el event loop incompatible de Uvicorn `--reload` en Windows y se corrige el comando de ejecucion. | El portal health devuelve 503 en vez de 500; guia y README actualizados | Completada |
 | 2026-07-14 | Actualizacion contrato por lote y fechas | La API pasa de un manifiesto unico a 1-100 manifiestos, devuelve un objeto cuya clave es cada manifiesto y admite `fecha_inicio` opcional. | 83 tests; secuencialidad, fechas, aislamiento, aceptacion de mas de 10, validacion y OpenAPI cubiertos | Completada |
+| 2026-07-17 | Normalizacion de conocimientos con comillas | La entrada elimina comillas simples o dobles envolventes antes de navegar TICA; Dokka aplica la misma limpieza al resolver BL. | 42 pruebas Python y 4 pruebas Laravel aprobadas; Ruff, Pint y `git diff --check` en verde | Completada |
 
 ## Registro de decisiones
 
@@ -350,7 +351,7 @@ Agregar una fila por cada cambio relevante.
 | 2026-07-13 | Los documentos del proyecto viven bajo `scrapping-tica/docs/`. | Centraliza documentos vivos, cierres e indices. |
 | 2026-07-13 | El DUA de movilizacion se modela en `ContextoMaritimo`, fuera de `ResultadoTICA`. | Evita publicarlo accidentalmente como DUA de nacionalizacion. |
 | 2026-07-13 | El usuario entrega manifiesto y fecha fin; no selecciona modalidad. | El clasificador productivo usa `Desc Descarga` en Master antes de despachar el flujo. |
-| 2026-07-13 | Terrestre queda fuera del contrato y del despacho actual. | El alcance vigente solo usa aereo y maritimo; una ampliacion futura requerira una decision nueva. |
+| 2026-07-20 | Terrestre se integra mediante endpoints de sesión independientes. | La entrada es Número DUA y el CAPTCHA se resuelve manualmente desde Dokka. |
 | 2026-07-13 | La PoC se conserva solo como referencia local en `tools/poc_validacion.py` y se excluye de Git. | El futuro API/microservicio debe desplegarse sin el archivo de validacion. |
 | 2026-07-13 | Ningun modulo de `app/` puede importar la PoC. | Las reglas reutilizables se copian y adaptan a modulos productivos con pruebas propias. |
 | 2026-07-13 | Los flujos completos aereo y maritimo permanecen marcados como no migrados. | Su migracion corresponde a Sprint 2 y Sprint 3; Sprint 1 solo prepara la infraestructura y el despacho. |
@@ -365,12 +366,13 @@ Agregar una fila por cada cambio relevante.
 | 2026-07-13 | `/health/portal` comprueba solo la portada de TICA y devuelve 503 si no responde. | Distingue salud del proceso y disponibilidad externa sin consultar manifiestos. |
 | 2026-07-13 | Los fallos de validacion usan HTTP 422; los resultados de negocio usan HTTP 200 con `estado` y `motivo`. | Separa errores del payload de estados propios de la consulta TICA. Aprobado en M1. |
 | 2026-07-13 | La indisponibilidad de `/health/portal` se documenta tambien como HTTP 503 en OpenAPI. | El contrato debe reflejar el comportamiento real del endpoint. |
-| 2026-07-15 | `bultos` y `peso_bruto` son enteros; TICA muestra tres decimales. | QA maritimo confirmo que `3.000` se publica como `3`. |
+| 2026-07-20 | `bultos` permanece entero y `peso_bruto` admite decimales. | `163.000` representa 163000; `163.000,25`, 163000.25; `544.70` conserva su decimal. |
 | 2026-07-13 | RAGA y otros consumidores deciden por `estado`; el catalogo podra evolucionar. | Nuevos estados o cambios se incorporaran posteriormente mediante una actualizacion del contrato. |
 | 2026-07-13 | Uvicorn se ejecuta sin `--reload` en el desarrollo local de Windows. | La recarga activa un event loop que no soporta el subproceso requerido por Playwright. |
 | 2026-07-14 | La API publica recibe siempre `manifiestos` como lista, incluso cuando contiene uno. | Mantiene una forma uniforme de request y response para uno o varios manifiestos. |
 | 2026-07-14 | Los manifiestos se procesan secuencialmente, conservan el orden y comparten `fecha_fin` y la `fecha_inicio` opcional. | Evita paralelismo agresivo contra TICA y coincide con la serializacion del navegador. |
 | 2026-07-14 | Se aceptan 1-100 manifiestos unicos y un fallo individual no cancela el lote. | Limita la duracion/carga del endpoint sincronico y permite resultados independientes. |
+| 2026-07-17 | Dokka y FastAPI eliminan espacios y comillas envolventes de cada conocimiento antes de consultar. | TICA interpreta las comillas literalmente y no devuelve el registro aunque el numero exista sin ellas. |
 
 ## Evidencias y comandos de verificacion
 
@@ -400,11 +402,12 @@ Registrar aqui los comandos ejecutados y una sintesis del resultado, evitando co
 | 2026-07-13 | Estructura GitHub | `.venv\\Scripts\\python.exe` ejecuta pytest, Ruff y mypy | 43 pruebas aprobadas; entorno original superior confirmado intacto |
 | 2026-07-13 | Correccion de arquitectura | Pytest, Ruff, mypy y busqueda de imports de la PoC | 48 pruebas aprobadas; lint y tipado limpios en 28 archivos; sin dependencia de la PoC en produccion o tests |
 | 2026-07-13 | TICA-016 | `.venv\\Scripts\\python.exe` ejecuta pytest, Ruff y mypy | 51 pruebas aprobadas; lint y tipado limpios en 30 archivos fuente |
-| 2026-07-13 | TICA-016 | Captura y parseo de la salida de structlog | JSON valido con `correlacion_id`, `modalidad`, `estado`, `duracion_ms`, nivel y timestamp; sin manifiesto |
+| 2026-07-20 | TICA-016 | Captura y parseo de structlog ampliados | JSON con `correlacion_id`, `tipo_busqueda`, `numero_busqueda`, modalidad, estado, duración, nivel y timestamp |
 | 2026-07-13 | TICA-017 | `.venv\\Scripts\\python.exe` ejecuta pytest, Ruff y mypy | 63 pruebas aprobadas sin warnings; lint y tipado limpios en 33 archivos fuente |
 | 2026-07-13 | TICA-017 | Pruebas HTTP con transporte ASGI, sin levantar red ni consultar TICA | POST valido/422, health 200, portal 200/503 y los siete estados aprobados |
 | 2026-07-13 | TICA-018 | Pruebas del esquema OpenAPI | Entrada exacta, 10 campos, campos retirados ausentes, siete estados y respuesta 503 documentada |
 | 2026-07-13 | TICA-018 | Pytest, Ruff y mypy | 67 pruebas aprobadas; lint y tipado limpios; sin consultas a TICA vivo |
-| 2026-07-15 | Correccion QA M3 | Normalizacion de cantidades | `3.000`, `614.000` y `7450.000` se convierten en `3`, `614` y `7450`; OpenAPI conserva tipo integer. |
+| 2026-07-16 | Correccion QA `PTY0036804` | Normalizacion de cantidades | Se eliminan separadores de miles en aereo, maritimo y movimientos; OpenAPI conserva tipo integer. |
 | 2026-07-13 | Correccion health portal | Reproduccion con event loop selector, Pytest, Ruff y mypy | Devuelve indisponibilidad controlada sin iniciar Playwright; 72 pruebas aprobadas, lint y tipado limpios |
 | 2026-07-14 | Contrato por lote y fechas | Pytest, Ruff, mypy y esquema OpenAPI | 83 pruebas aprobadas; request 1-100 manifiestos, inicio opcional, mas de 10 aceptados y respuesta indexada directamente por manifiesto |
+| 2026-07-17 | Normalizacion de conocimientos con comillas | Pest/PHPUnit, Pytest, Pint, Ruff y `git diff --check` | `"684115001954"` y `'684115001954'` se convierten en `684115001954` tanto en Dokka como en FastAPI |

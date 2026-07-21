@@ -28,6 +28,12 @@ Para consultar uno solo igualmente se envia una lista:
 
 `manifiesto` conserva el significado que ya tiene en las reglas del proyecto: es el identificador con el que comienza la busqueda del conocimiento. No se agrega una entidad generica llamada `codigo`.
 
+Cada elemento de `manifiestos` se normaliza antes de abrir el navegador: se eliminan
+espacios externos y comillas simples o dobles envolventes. Por tanto,
+`"684115001954"` y `'684115001954'` se consultan en TICA como `684115001954`.
+Un valor que quede vacio despues de esta normalizacion no cumple el contrato y recibe
+HTTP 422. La validacion de duplicados se aplica sobre los valores ya normalizados.
+
 `fecha_inicio` es opcional. Al omitirla, el servicio no completa el campo de inicio y conserva el mismo comportamiento de la pantalla manual de TICA:
 
 ```json
@@ -136,9 +142,10 @@ En maritimo, `movimientos` contiene todos los movimientos de las lineas. Con uno
 los campos escalares conservan el mismo valor por compatibilidad; con varios, los
 escalares quedan `null`. Aereo siempre entrega `movimientos: []`.
 
-`bultos` y `peso_bruto` son enteros JSON. TICA presenta tres decimales: `3.000` se
-normaliza como `3`. Esta interpretacion fue corregida durante el QA maritimo al comparar
-los movimientos por linea con el total consolidado.
+`bultos` es entero JSON y `peso_bruto` es decimal. Los separadores de miles se normalizan antes
+de publicar: `5.000` se normaliza como `5000`. Dokka recibe y muestra cantidades
+enteras. La regla aplica a aereo, maritimo, campos resumen y cada elemento de
+`movimientos`.
 
 ## Estados y aislamiento
 
@@ -179,3 +186,16 @@ El contrato inicial recibia `manifiesto` y devolvia un solo `ResultadoTICA`. Des
 - La respuesta usa cada manifiesto como clave de primer nivel.
 - Bajo cada clave aparecen directamente los datos solicitados, sin `regla` ni `resultados`.
 - El orquestador unitario se conserva internamente y se invoca una vez por manifiesto.
+
+## Contrato terrestre incorporado en Sprint 6
+
+Terrestre no usa el lote `/v1/consultas` porque debe pausar para intervención humana.
+Su contrato se basa en un `session_id` opaco conservado por el mismo proceso:
+
+- `POST /v1/consultas-terrestres` recibe `{ "dua": "005-2026-470211" }` y devuelve CAPTCHA y expiración.
+- `POST /v1/consultas-terrestres/{session_id}/resolver` recibe el CAPTCHA; un rechazo conserva la sesión y un acierto devuelve `consultando`.
+- `GET /v1/consultas-terrestres/{session_id}` devuelve `consultando`, `completado`, `fallido`, `expirado` o `cancelado`.
+- `DELETE /v1/consultas-terrestres/{session_id}` libera únicamente recursos temporales de Playwright.
+
+El resultado completado conserva `dua`, `fecha_registro` y los tres momentos compartidos
+con aéreo/marítimo. La espera humana usa TTL independiente del timeout de extracción.

@@ -108,6 +108,7 @@ class ConsultaOrchestrator:
             resultado=result,
             duracion_ms=(perf_counter() - started_at) * 1_000,
             correlacion_id=correlation_id,
+            numero_busqueda=entrada.manifiesto,
         )
         return result
 
@@ -148,7 +149,7 @@ class ConsultaOrchestrator:
 
                 raw = await self._dispatcher.consultar(page, entrada, search)
                 await self._browser.asegurar_sin_captcha(page)
-                result = self._map_result(entrada, detected, raw)
+                result = self.normalizar_resultado(entrada, detected, raw)
                 await self._cache.guardar(result)
                 return result
         except CaptchaRequiredError:
@@ -212,12 +213,13 @@ class ConsultaOrchestrator:
         return max(candidates, key=lambda result: result.consultado_en)
 
     @classmethod
-    def _map_result(
+    def normalizar_resultado(
         cls,
         entrada: ConsultaInput,
         modalidad: Modalidad,
         raw: ResultadoEstrategia,
     ) -> ResultadoTICA:
+        """Aplica el contrato común sin importar cómo se navegó hasta los datos."""
         values = cls._values(raw)
         movements = cls._movements(raw)
         raw_status = str(raw.get("estado", ""))
@@ -252,7 +254,7 @@ class ConsultaOrchestrator:
                     values.get("fecha_movimiento_inventario")
                 ),
                 bultos=cls._parse_integer(values.get("bultos")),
-                peso_bruto=cls._parse_integer(values.get("peso_bruto")),
+                peso_bruto=cls._parse_decimal(values.get("peso_bruto")),
                 movimientos=[
                     DatosMovimiento(
                         movimiento_inventario=cls._text_or_none(
@@ -266,7 +268,7 @@ class ConsultaOrchestrator:
                             item.get("fecha_movimiento_inventario")
                         ),
                         bultos=cls._parse_integer(item.get("bultos")),
-                        peso_bruto=cls._parse_integer(item.get("peso_bruto")),
+                        peso_bruto=cls._parse_decimal(item.get("peso_bruto")),
                     )
                     for item in movements
                 ],
@@ -274,7 +276,6 @@ class ConsultaOrchestrator:
             momento3=DatosMomento3(
                 dua_nacionalizacion=cls._text_or_none(dua),
                 fecha_dua=cls._parse_date(values.get("fecha_dua")),
-                estado_final=cls._text_or_none(values.get("estado_final")),
             ),
             motivo=cls._reason(raw),
         )
@@ -363,12 +364,27 @@ class ConsultaOrchestrator:
 
     @staticmethod
     def _parse_integer(value: str | None) -> int | None:
-        """Convierte cantidades TICA expresadas con tres decimales."""
+        """Convierte cantidades TICA con punto como separador de miles."""
 
         text = re.sub(r"[\s\u00a0]", "", (value or "").strip())
-        if re.fullmatch(r"\d+", text):
-            return int(text)
-        match = re.fullmatch(r"(\d+)[.,]0{3}", text)
-        if match:
-            return int(match.group(1))
-        return None
+        if not re.fullmatch(r"\d+(?:[.,]\d{3})*", text):
+            return None
+
+        return int(re.sub(r"[.,]", "", text))
+
+    @staticmethod
+    def _parse_decimal(value: str | None) -> float | None:
+        """Normaliza miles con punto y decimales con coma usados por TICA."""
+
+        text = re.sub(r"[\s\u00a0]", "", (value or "").strip())
+        if not text:
+            return None
+        if "," in text:
+            text = text.replace(".", "")
+            text = text.replace(",", ".")
+        elif re.fullmatch(r"\d+(?:\.\d{3})+", text):
+            text = text.replace(".", "")
+        try:
+            return float(text)
+        except ValueError:
+            return None

@@ -39,7 +39,7 @@ sin login ni CAPTCHA.
 - Recorrer para aéreo: consulta por conocimiento → Líneas y Afectaciones → DUAs.
 - Recorrer para marítimo: conocimiento → Líneas y Afectaciones → Depósitos → Movimientos por Nº Inventario.
 - En cada pantalla registrar: ¿pidió login?, ¿apareció CAPTCHA?, ¿qué campos de los 12 son visibles?
-- Si aparece un CAPTCHA: **detener y registrar**, nunca intentar resolverlo.
+- En la PoC y en búsquedas automáticas aéreo/marítimas, si aparece un CAPTCHA: **detener y registrar**. Terrestre usa posteriormente resolución humana explícita.
 
 **Criterios de aceptación:**
 - Corre con parámetros por entorno, sin credenciales hardcodeadas.
@@ -82,7 +82,7 @@ sin login ni CAPTCHA.
 (`Modalidad`, `EstadoConsulta`, `ConsultaInput`, `DatosMomento1/2/3`, `PartidaArancelaria`, `ResultadoTICA`).
 
 **Criterios de aceptación:** modelos validan y serializan; `EstadoConsulta` cubre los 7 estados;
-`ConsultaInput` acepta los tres identificadores (conocimiento / codigo_dms / cedula_juridica).
+El contrato separa conocimientos aéreo/marítimos de las sesiones terrestres por Número DUA.
 
 ## TICA-013 · Gestor de navegador Playwright · 6 h
 **Depende de:** TICA-010
@@ -109,14 +109,14 @@ terrestre responde `not_implemented` sin romper.
 **Archivo:** `app/orchestrator/consulta.py`
 
 **Alcance:** recibe `ConsultaInput`, **valida** (marítimo exige cédula; aéreo exige conocimiento;
-terrestre exige codigo_dms), **calcula la ventana de fechas** (tope 15 días), elige la estrategia,
+terrestre utiliza sus endpoints de sesión por Número DUA), **calcula la ventana de fechas** (tope 15 días), elige la estrategia,
 integra la caché, y **mapea excepciones/timeouts al modelo de estados** (sección 8 del CLAUDE.md).
 Incluye la lógica de reintento por momento.
 
 **Criterios de aceptación:**
 - Entrada inválida → error de validación claro antes de tocar el navegador.
 - Portal sin respuesta con caché → `stale`; sin caché → `unavailable`.
-- CAPTCHA detectado → `unavailable` motivo `captcha_required`.
+- CAPTCHA inesperado en aéreo/marítimo → `unavailable/captcha_required`; CAPTCHA terrestre → sesión manual.
 - Tests de cada rama de estado con dependencias simuladas.
 
 ## TICA-016 · Caché de última lectura buena · 3 h
@@ -273,12 +273,15 @@ como nacionalización; caso consolidado multi-cédula que debe filtrar la correc
 
 ## TICA-040 · Migración de campos de embarque · 4 h
 **Depende de:** contrato de F1
-**Alcance:** agregar `codigo_dms` (terrestre), `cedula_juridica` del importador, y soporte para
+**Alcance revisado:** reutilizar campos existentes; terrestre recibe Número DUA por su API de sesiones y aéreo/marítimo soportan
 **múltiples conocimientos por embarque** (aéreo/marítimo).
 **Criterios de aceptación:** migración reversible; modelo y factory actualizados; no rompe embarques existentes.
 
-**Implementacion final:** completada sin migracion ni campos nuevos por decision funcional.
-Se reutilizan `dua_number`, `dua_released_date` y `notes` de `shipping_documents`.
+**Implementación final:** completada sin migración ni campos nuevos. `package_count`
+permanece entero y `total_weight_kg` conserva dos decimales. El parser distingue miles
+y fracciones según el formato TICA.
+Se reutilizan `arrival_date`, `warehouse_code`, `movement_date`, `package_count`,
+`total_weight_kg`, `dua_number`, `dua_released_date` y `notes` de `shipping_documents`.
 
 ## TICA-041 · UI detalle de orden con datos TICA · 4 h
 **Depende de:** TICA-040
@@ -294,8 +297,9 @@ movimiento, almacén, bultos, peso, partidas, valor) con su **estado** (ok / pen
 
 > **Hito M4 — Integración RAGA.**
 
-> **Completado localmente 2026-07-15.** Cliente, Job, Command, scheduler, Livewire y QA
-> real con 8 SD. El detalle vigente esta en `INTEGRACION-SCRAPPING-DOKKA-TICA.md`.
+> **Implementacion vigente actualizada 2026-07-16.** Cliente manual sincronico y Livewire
+> mediante **Buscar DUA**, sin Job, Command ni scheduler. El detalle vigente esta en
+> `INTEGRACION-API-TICA.md`.
 
 ---
 
@@ -306,9 +310,9 @@ movimiento, almacén, bultos, peso, partidas, valor) con su **estado** (ok / pen
 **Archivo:** `tests/test_degradacion.py`
 
 **Alcance (dev):** provocar con fixtures: portal caído → `stale` con caché / `unavailable` sin caché;
-CAPTCHA en fixture → `unavailable` motivo `captcha_required` sin intentar resolverlo.
+CAPTCHA inesperado aéreo/marítimo → `unavailable/captcha_required`; terrestre prueba resolución humana, rechazo y expiración.
 
-**Criterios de aceptación:** ambos escenarios en verde; el test de CAPTCHA falla si alguien intentara resolverlo.
+**Criterios de aceptación:** degradación automática y estados de sesión terrestre cubiertos sin intentar eludir el CAPTCHA.
 
 ## TICA-051 · Soporte a la matriz de estados de QA · 2 h
 **Depende de:** F2 + F3
@@ -320,26 +324,36 @@ CAPTCHA en fixture → `unavailable` motivo `captcha_required` sin intentar reso
 
 ---
 
-# FASE 6 — Modalidad terrestre (CONDICIONAL)
+# FASE 6 — Modalidad terrestre
 
-> No iniciar sin la grabación del proceso real y la confirmación del formato del código DMS.
+## TICA-060 · Confirmar insumos y recorrido terrestre · 3 h
+**Estado:** completado.
+**Alcance:** confirmar la consulta por Número DUA, detalle inicial, CAPTCHA,
+Manifiesto/Stock, movimientos y Detenciones.
 
-## TICA-060 · Grabar fixtures terrestre · 3 h
-**Depende de:** grabación recibida
-**Ruta:** `tests/fixtures/terrestre/`
+## TICA-061 · Confirmar y normalizar Número DUA · 2 h
+**Estado:** completado.
+**Alcance:** aceptar tres grupos numéricos separados por guiones o espacios, eliminar
+comillas y espacios externos y normalizar a `aduana-año-correlativo`.
 
-## TICA-061 · Implementar terrestre.py · 12 h
-**Depende de:** TICA-060
-**Archivo:** `app/scraper/terrestre.py`
-**Alcance:** mismo patrón de estrategia que aéreo/marítimo, entrada por código DMS.
-Actualizar la especificación (sección 5.3) con el flujo confirmado.
+## TICA-062 · Fixtures y pruebas terrestres · 5 h
+**Estado:** implementado; validación productiva pendiente.
+**Ruta:** `tests/test_terrestre.py` y fixtures sanitizados disponibles.
+**Alcance:** formato DUA, CAPTCHA, sesiones, expiración, aislamiento, movimientos,
+normalización y cierre de recursos.
 
-## TICA-062 · Tests terrestre + validación · 5 h
-**Depende de:** TICA-061
-**Archivo:** `tests/test_terrestre.py`
-**Alcance:** tests equivalentes a las otras modalidades; handoff a QA.
+## TICA-063 · Estrategia y sesiones CAPTCHA · 12 h
+**Estado:** completado.
+**Archivo:** `app/scraper/terrestre.py`.
+**Alcance:** BrowserContext aislado, CAPTCHA en memoria, TTL, máximo de sesiones,
+polling posterior y limpieza garantizada.
 
-> **Hito M6 — Terrestre (condicional).**
+## TICA-064 · Integración Dokka y validación terrestre · 5 h
+**Estado:** implementado con QA productivo pendiente.
+**Alcance:** botón en SD Editar, modal, resolución manual, polling, persistencia atómica,
+Observaciones y manejo de errores.
+
+> **Hito M6 — Implementado; aprobación formal pendiente de validación productiva.**
 
 ---
 
@@ -353,4 +367,4 @@ Actualizar la especificación (sección 5.3) con el flujo confirmado.
 | F3 | TICA-030 … 034 | 30 h dev (+4 h QA) |
 | F4 | TICA-040 … 042 | 12 h |
 | F5 | TICA-050, 051 (+ QA) | 5 h dev (+13 h QA) |
-| F6 | TICA-060 … 062 | 20 h (condicional) |
+| F6 | TICA-060 … 064 | 27 h; implementación terminada, QA productivo pendiente |
